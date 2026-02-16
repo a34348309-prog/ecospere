@@ -1,0 +1,178 @@
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ─────────────────────────────────────────────────────────────
+// USER — Auth, eco tracking, home location
+// ─────────────────────────────────────────────────────────────
+model User {
+  id                 String   @id @default(uuid())
+  name               String
+  email              String   @unique
+  password           String
+  level              Int      @default(1)
+  ecoScore           Int      @default(0)
+  carbonDebt         Float    @default(0)
+  totalTreesPlanted  Int      @default(0)
+  oxygenContribution Float    @default(0)
+  lifetimeCarbon     Float    @default(0)
+  treesToOffset      Int      @default(0)
+  homeLocation       Unsupported("geometry(Point, 4326)")?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  joinedEvents   Event[]         @relation("UserEvents")
+  hostedEvents   Event[]         @relation("UserHostedEvents")
+  aqiLogs        AQILog[]
+  carbonBills    CarbonBill[]
+  impactLedger   ImpactLedger[]
+  sentRequests   Friendship[]    @relation("FriendshipSender")
+  receivedRequests Friendship[]  @relation("FriendshipReceiver")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FRIENDSHIP — Friend connections between users
+// ─────────────────────────────────────────────────────────────
+model Friendship {
+  id        String   @id @default(uuid())
+  userId    String
+  friendId  String
+  status    String   @default("accepted") // pending | accepted | rejected
+  createdAt DateTime @default(now())
+
+  user   User @relation("FriendshipSender", fields: [userId], references: [id])
+  friend User @relation("FriendshipReceiver", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// EVENT — Community planting events (Point-based location)
+// ─────────────────────────────────────────────────────────────
+model Event {
+  id                  String   @id @default(uuid())
+  title               String
+  description         String
+  organizer           String
+  date                DateTime
+  time                String
+  locationName        String
+  coordinates         Unsupported("geometry(Point, 4326)")
+  currentParticipants Int      @default(0)
+  maxParticipants     Int      @default(50)
+  createdAt           DateTime @default(now())
+
+  hostId       String
+  host         User   @relation("UserHostedEvents", fields: [hostId], references: [id])
+  participants User[] @relation("UserEvents")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PLANTATION_EVENT — Drives with a physical site boundary (Polygon)
+// ─────────────────────────────────────────────────────────────
+model PlantationEvent {
+  id            String   @id @default(uuid())
+  title         String
+  description   String
+  organizerName String
+  date          DateTime
+  locationName  String
+  siteBoundary  Unsupported("geometry(Polygon, 4326)")
+  centroid      Unsupported("geometry(Point, 4326)")
+  treesPlanted  Int      @default(0)
+  treesGoal     Int      @default(100)
+  status        String   @default("upcoming") // upcoming | active | completed
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  impactRecords ImpactLedger[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// IMPACT_LEDGER — Links users ↔ plantation events for verification
+// ─────────────────────────────────────────────────────────────
+model ImpactLedger {
+  id               String   @id @default(uuid())
+  userId           String
+  plantationId     String
+  attended         Boolean  @default(false)
+  treesContributed Int      @default(0)
+  verifiedAt       DateTime?
+  createdAt        DateTime @default(now())
+
+  user      User            @relation(fields: [userId], references: [id])
+  plantation PlantationEvent @relation(fields: [plantationId], references: [id])
+
+  @@unique([userId, plantationId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// AQI_LOG — Per-user AQI readings with location + TTL cleanup
+// ─────────────────────────────────────────────────────────────
+model AQILog {
+  id        String   @id @default(uuid())
+  userId    String
+  aqiValue  Int
+  location  Unsupported("geometry(Point, 4326)")
+  status    String   // Good | Moderate | Unhealthy ...
+  timestamp DateTime @default(now())
+  expiresAt DateTime // TTL: auto-cleanup target
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, timestamp])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// CARBON_BILL — Utility bill OCR extraction & carbon calculation
+// ─────────────────────────────────────────────────────────────
+model CarbonBill {
+  id             String   @id @default(uuid())
+  userId         String
+  billType       String   // electricity | gas | water
+  rawText        String?  // OCR-extracted raw text
+  totalUnits     Float    // kWh or units consumed
+  carbonKg       Float    // totalUnits × emission factor
+  billDate       DateTime?
+  imagePath      String?  // path to uploaded image
+  extractedData  Json?    // structured OCR results
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// NGO — Environmental organizations
+// ─────────────────────────────────────────────────────────────
+model NGO {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  address     String
+  website     String?
+  coordinates Unsupported("geometry(Point, 4326)")
+  createdAt   DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// AQI_RECORD — Global AQI station snapshots (legacy/global data)
+// ─────────────────────────────────────────────────────────────
+model AQIRecord {
+  id           String   @id @default(uuid())
+  value        Int
+  locationName String
+  coordinates  Unsupported("geometry(Point, 4326)")
+  timestamp    DateTime @default(now())
+}
