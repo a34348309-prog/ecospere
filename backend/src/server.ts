@@ -12,12 +12,16 @@ const io = initializeSocketIO(server);
 
 // Start server
 server.listen(PORT, () => {
-    console.log(`\n🌿 EcoSphere API Server`);
-    console.log(`   ├── Port:    ${PORT}`);
-    console.log(`   ├── API:     http://localhost:${PORT}/api/v1`);
-    console.log(`   ├── Docs:    http://localhost:${PORT}/api/docs`);
-    console.log(`   ├── Socket:  ws://localhost:${PORT}`);
-    console.log(`   └── Health:  http://localhost:${PORT}/\n`);
+
+    console.log("\n" + "=" .repeat(60));
+    console.log("🌿 EcoSphere API Server Started");
+    console.log("=" .repeat(60));
+    console.log(`\n🚀 Server running on port: ${PORT}`);
+    console.log(`🔗 API: http://localhost:${PORT}/api/v1`);
+    console.log(`📚 Docs: http://localhost:${PORT}/api/docs`);
+    console.log(`💬 Socket: ws://localhost:${PORT}`);
+    console.log(`💚 Health: http://localhost:${PORT}/health\n`);
+    console.log("=" .repeat(60) + "\n");
 });
 
 export { server, io };
