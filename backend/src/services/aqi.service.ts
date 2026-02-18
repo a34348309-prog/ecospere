@@ -62,6 +62,9 @@ export const fetchAQI = async (lat: number, lng: number): Promise<AQIResult> => 
             const response = await axios.get(`${WAQI_BASE_URL}/geo:${lat};${lng}/?token=${waqiKey}`);
             if (response.data?.status === 'ok') {
                 const aqi = response.data.data.aqi;
+                console.log(response.data)
+                console.log(response.data.city)
+
                 return {
                     aqiValue: aqi,
                     status: getAQIStatus(aqi),

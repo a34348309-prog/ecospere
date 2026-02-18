@@ -8,7 +8,7 @@
  */
 
 // Your Computer's Local IP
-export const LOCAL_IP = '192.168.137.12';
+export const LOCAL_IP = '192.168.137.1';
 export const PORT = '5000';
 
 export const API_BASE_URL = `http://${LOCAL_IP}:${PORT}/api/v1`;

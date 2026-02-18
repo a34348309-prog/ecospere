@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, Image, Dimensions, ActivityIndicator } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { Text, Card } from 'react-native-paper';
 import { Colors } from '../theme/colors';
@@ -13,6 +13,8 @@ import {
     Search,
     Leaf
 } from 'lucide-react-native';
+import * as Location from 'expo-location';
+import { updateLocationAQI, getCurrentAQI } from '../services/aqi.service';
 
 const INITIAL_REGION = {
     latitude: 42.3601,
@@ -21,18 +23,87 @@ const INITIAL_REGION = {
     longitudeDelta: 0.0421,
 };
 
-const MARKERS = [
+const STATIC_MARKERS = [
     { id: 1, lat: 42.3601, lng: -71.0589, emoji: "🌳", label: "Site A" },
-    { id: 2, lat: 42.3551, lng: -71.0650, emoji: "💨", label: "AQI 42" },
     { id: 3, lat: 42.3651, lng: -71.0520, emoji: "🏢", label: "EcoNGO" },
 ];
 
+const getAQIColor = (aqi: number) => {
+    if (aqi <= 50) return '#4CAF50';   // Good - green
+    if (aqi <= 100) return '#FF9800';  // Moderate - orange
+    if (aqi <= 150) return '#FF5722';  // Unhealthy sensitive - deep orange
+    if (aqi <= 200) return '#F44336';  // Unhealthy - red
+    return '#9C27B0';                  // Very unhealthy / Hazardous - purple
+};
+
 export const Map = ({ onBack }: any) => {
     const [mapType, setMapType] = useState<'standard' | 'satellite' | 'hybrid'>('standard');
+    const [aqiData, setAqiData] = useState<{ aqi: number; status: string; alert: boolean } | null>(null);
+    const [aqiLoading, setAqiLoading] = useState(true);
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [region, setRegion] = useState(INITIAL_REGION);
+    const mapRef = useRef<MapView>(null);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') {
+                    console.warn('Location permission denied, falling back to city-based AQI');
+                    // Fallback: fetch AQI by default city
+                    const fallback = await getCurrentAQI('delhi');
+                    if (fallback) {
+                        setAqiData({ aqi: fallback.aqiValue, status: fallback.status || 'Unknown', alert: false });
+                    }
+                    setAqiLoading(false);
+                    return;
+                }
+
+                const location = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                });
+                const { latitude, longitude } = location.coords;
+                setUserLocation({ lat: latitude, lng: longitude });
+
+                // Center map on user location
+                setRegion({
+                    latitude,
+                    longitude,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421,
+                });
+
+                // Fetch live AQI
+                const result = await updateLocationAQI(latitude, longitude);
+                if (result && result.success) {
+                    setAqiData({ aqi: result.aqi, status: result.status, alert: result.alert });
+                } else {
+                    // Fallback to city-based
+                    const fallback = await getCurrentAQI();
+                    if (fallback) {
+                        setAqiData({ aqi: fallback.aqiValue, status: fallback.status || 'Unknown', alert: false });
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching location/AQI:', error);
+                // Final fallback
+                const fallback = await getCurrentAQI();
+                if (fallback) {
+                    setAqiData({ aqi: fallback.aqiValue, status: fallback.status || 'Unknown', alert: false });
+                }
+            } finally {
+                setAqiLoading(false);
+            }
+        })();
+    }, []);
 
     const toggleGreenery = () => {
         setMapType(prev => prev === 'standard' ? 'hybrid' : 'standard');
     };
+
+    const aqiValue = aqiData?.aqi ?? 0;
+    const aqiStatus = aqiData?.status ?? 'Loading...';
+    const aqiColor = getAQIColor(aqiValue);
 
     return (
         <View style={styles.container}>
@@ -57,13 +128,14 @@ export const Map = ({ onBack }: any) => {
             {/* Map View */}
             <View style={styles.mapArea}>
                 <MapView
+                    ref={mapRef}
                     style={styles.map}
-                    initialRegion={INITIAL_REGION}
+                    initialRegion={region}
                     mapType={mapType}
                     showsUserLocation={true}
                     showsCompass={false}
                 >
-                    {MARKERS.map((marker) => (
+                    {STATIC_MARKERS.map((marker) => (
                         <Marker
                             key={marker.id}
                             coordinate={{ latitude: marker.lat, longitude: marker.lng }}
@@ -76,6 +148,21 @@ export const Map = ({ onBack }: any) => {
                             </View>
                         </Marker>
                     ))}
+                    {/* AQI marker at user location */}
+                    {userLocation && aqiData && (
+                        <Marker
+                            coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }}
+                        >
+                            <View style={styles.customMarker}>
+                                <View style={[styles.markerBubble, { borderColor: aqiColor }]}>
+                                    <Text style={{ fontSize: 16 }}>💨</Text>
+                                </View>
+                                <Text style={[styles.markerLabel, { color: aqiColor }]}>
+                                    AQI {aqiValue}
+                                </Text>
+                            </View>
+                        </Marker>
+                    )}
                 </MapView>
 
                 {/* Floating Navigation Button */}
@@ -97,14 +184,28 @@ export const Map = ({ onBack }: any) => {
                 <View style={styles.dragHandle} />
                 <View style={styles.insightHeader}>
                     <View style={styles.insightTitleContainer}>
-                        <Text style={styles.insightTitle}>Current Area: Boston</Text>
-                        <Text style={styles.insightSubtitle}>High tree density • Good AQI</Text>
+                        <Text style={styles.insightTitle}>Your Location</Text>
+                        <Text style={styles.insightSubtitle}>
+                            {aqiLoading ? 'Fetching air quality...' : `Air Quality: ${aqiStatus}`}
+                        </Text>
                     </View>
-                    <View style={styles.aqiBadge}>
-                        <Wind size={14} color="#fff" />
-                        <Text style={styles.aqiText}>42 AQI</Text>
+                    <View style={[styles.aqiBadge, { backgroundColor: aqiLoading ? Colors.primaryLight : aqiColor }]}>
+                        {aqiLoading ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Wind size={14} color="#fff" />
+                                <Text style={styles.aqiText}>{aqiValue} AQI</Text>
+                            </>
+                        )}
                     </View>
                 </View>
+
+                {aqiData?.alert && (
+                    <View style={styles.alertBanner}>
+                        <Text style={styles.alertText}>⚠️ Air quality is unhealthy. Consider wearing a mask outdoors.</Text>
+                    </View>
+                )}
 
                 <View style={styles.statsRow}>
                     <MiniStat icon={<TreeDeciduous size={16} color={Colors.primary} />} label="Sites" val="12" />
@@ -298,4 +399,18 @@ const styles = StyleSheet.create({
     miniStatVal: { fontSize: 18, fontWeight: '900', color: Colors.text },
     miniStatLab: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600', marginTop: 2 },
     divider: { width: 1, height: 24, backgroundColor: '#E0E4E8' },
+    alertBanner: {
+        backgroundColor: '#FFF3E0',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FFE0B2',
+    },
+    alertText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#E65100',
+        textAlign: 'center',
+    },
 });
