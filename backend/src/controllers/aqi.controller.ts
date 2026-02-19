@@ -79,6 +79,7 @@ export const getCurrentAQI = async (req: Request, res: Response, next: NextFunct
     try {
         const city = req.query.city as string || 'delhi';
         const result = await getAQIByCity(city);
+        console.log(result)
         res.json({ success: true, ...result });
     } catch (error) {
         next(error);
