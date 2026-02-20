@@ -27,6 +27,9 @@ import {
   getCurrentAQI,
   PollutantComponents,
 } from "../services/aqi.service";
+import axios from "axios";
+import { API_ENDPOINTS } from "../services/api.config";
+import { useAuthStore } from "../store/useAuthStore";
 
 const INITIAL_REGION = {
   latitude: 42.3601,
@@ -34,11 +37,6 @@ const INITIAL_REGION = {
   latitudeDelta: 0.0922,
   longitudeDelta: 0.0421,
 };
-
-const STATIC_MARKERS = [
-  { id: 1, lat: 42.3601, lng: -71.0589, emoji: "🌳", label: "Site A" },
-  { id: 3, lat: 42.3651, lng: -71.052, emoji: "🏢", label: "EcoNGO" },
-];
 
 const getAQIColor = (aqi: number) => {
   if (aqi <= 50) return "#4CAF50"; // Good - green
@@ -65,6 +63,22 @@ export const Map = ({ onBack }: any) => {
   } | null>(null);
   const [region, setRegion] = useState(INITIAL_REGION);
   const mapRef = useRef<MapView>(null);
+  const [nearbyNGOs, setNearbyNGOs] = useState<any[]>([]);
+
+  const fetchNearbyNGOs = async (lat: number, lng: number) => {
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await axios.get(
+        `${API_ENDPOINTS.NGO}/nearby?lat=${lat}&lng=${lng}&radius=10000`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.data?.data) {
+        setNearbyNGOs(res.data.data);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch nearby NGOs:", err);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -104,6 +118,9 @@ export const Map = ({ onBack }: any) => {
           },
           1000,
         );
+
+        // Fetch nearby NGOs
+        fetchNearbyNGOs(latitude, longitude);
 
         // Fetch live AQI
         const result = await updateLocationAQI(latitude, longitude);
@@ -190,16 +207,30 @@ export const Map = ({ onBack }: any) => {
           showsUserLocation={true}
           showsCompass={false}
         >
-          {STATIC_MARKERS.map((marker) => (
+          {/* Nearby NGO Markers */}
+          {nearbyNGOs.map((ngo: any) => (
             <Marker
-              key={marker.id}
-              coordinate={{ latitude: marker.lat, longitude: marker.lng }}
+              key={ngo.id}
+              coordinate={{ latitude: ngo.latitude, longitude: ngo.longitude }}
+              title={ngo.name}
+              description={
+                ngo.distance
+                  ? `${(ngo.distance / 1000).toFixed(1)} km away`
+                  : ngo.focus_area
+              }
             >
               <View style={styles.customMarker}>
-                <View style={styles.markerBubble}>
-                  <Text style={{ fontSize: 16 }}>{marker.emoji}</Text>
+                <View style={[styles.markerBubble, { borderColor: "#0288D1" }]}>
+                  <Text style={{ fontSize: 16 }}>🏢</Text>
                 </View>
-                <Text style={styles.markerLabel}>{marker.label}</Text>
+                <Text
+                  style={[styles.markerLabel, { color: "#0288D1" }]}
+                  numberOfLines={1}
+                >
+                  {ngo.name?.length > 12
+                    ? ngo.name.substring(0, 12) + "..."
+                    : ngo.name}
+                </Text>
               </View>
             </Marker>
           ))}

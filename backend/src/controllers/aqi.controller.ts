@@ -8,12 +8,20 @@ import {
   fetchAQIForecast,
 } from "../services/aqi.service";
 import { AppError } from "../middleware/errorHandler";
+import {
+  switchUserTile,
+  getCachedTileAQI,
+  cacheTileAQI,
+  emitToTile,
+  emitToUser,
+  getTileUserCount,
+} from "../lib/socket";
 
 /**
  * @swagger
  * /api/v1/location/update:
  *   post:
- *     summary: Update user location and get real-time AQI
+ *     summary: Update user location and get real-time AQI (tile-based)
  *     tags: [Location & AQI]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
@@ -24,11 +32,11 @@ import { AppError } from "../middleware/errorHandler";
  *             type: object
  *             required: [lat, lng]
  *             properties:
- *               lat: { type: number, example: 42.3601 }
- *               lng: { type: number, example: -71.0589 }
+ *               lat: { type: number, example: 28.6139 }
+ *               lng: { type: number, example: 77.2090 }
  *     responses:
  *       200:
- *         description: AQI data with alert status and pollutant components
+ *         description: AQI data with tile info, alert status, and pollutant components
  */
 export const updateLocation = async (
   req: Request,
@@ -39,7 +47,60 @@ export const updateLocation = async (
     const userId = (req as any).user.userId;
     const { lat, lng } = req.body;
 
+    // 1. Switch user to the correct tile room
+    const { tileId, isNewTile } = await switchUserTile(userId, lat, lng);
+    const usersInTile = getTileUserCount(tileId);
+
+    // 2. Check tile cache — avoid redundant API calls
+    const cached = getCachedTileAQI(tileId);
+    if (cached && !isNewTile) {
+      // Serve from cache — no OpenWeather API call
+      console.log(
+        `[AQI] Serving cached data for ${tileId} (${usersInTile} users in tile)`,
+      );
+      return res.json({
+        success: true,
+        aqi: cached.aqiValue,
+        status: cached.status,
+        alert: cached.alert,
+        components: cached.components || null,
+        tileId,
+        usersInTile,
+        cached: true,
+        message: `Air quality is ${cached.status} (AQI: ${cached.aqiValue})`,
+      });
+    }
+
+    // 3. Fetch fresh AQI from OpenWeather
     const result = await processLocationUpdate(userId, lat, lng);
+
+    // 4. Cache the result for this tile
+    cacheTileAQI(tileId, result);
+
+    // 5. Broadcast AQI update to everyone in this tile
+    const tilePayload = {
+      aqi: result.aqiValue,
+      status: result.status,
+      alert: result.alert,
+      components: result.components || null,
+      tileId,
+      usersInTile,
+      timestamp: new Date().toISOString(),
+    };
+    emitToTile(tileId, "aqi-update", tilePayload);
+    console.log(
+      `[AQI] Broadcast to ${tileId}: AQI ${result.aqiValue} (${usersInTile} users)`,
+    );
+
+    // 6. Send personal alert if AQI is unhealthy
+    if (result.alert) {
+      emitToUser(userId, "aqi-alert", {
+        aqi: result.aqiValue,
+        status: result.status,
+        message: `⚠️ AQI is ${result.status} (${result.aqiValue}) in your area. Stay safe!`,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     res.json({
       success: true,
@@ -47,6 +108,9 @@ export const updateLocation = async (
       status: result.status,
       alert: result.alert,
       components: result.components || null,
+      tileId,
+      usersInTile,
+      cached: false,
       message: result.alert
         ? `⚠️ AQI is ${result.status} (${result.aqiValue}). Stay safe!`
         : `Air quality is ${result.status} (AQI: ${result.aqiValue})`,
