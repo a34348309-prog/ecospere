@@ -66,7 +66,7 @@ export const Home = ({ onNavigate }: any) => {
             weekday: "short",
           });
           if (!byDay[day]) byDay[day] = [];
-          byDay[day].push(item.main?.aqi || 0);
+          byDay[day].push(item.aqiValue || 0);
         });
         const daily = Object.entries(byDay)
           .slice(0, 4)
@@ -216,20 +216,20 @@ export const Home = ({ onNavigate }: any) => {
           <View style={styles.forecastRow}>
             {forecast.map((item, i) => {
               const color =
-                item.aqi <= 1
+                item.aqi <= 50
                   ? "#4CAF50"
-                  : item.aqi <= 2
+                  : item.aqi <= 100
                     ? "#FF9800"
-                    : item.aqi <= 3
+                    : item.aqi <= 150
                       ? "#FF5722"
                       : "#F44336";
               const label =
-                item.aqi <= 1
+                item.aqi <= 50
                   ? "Good"
-                  : item.aqi <= 2
-                    ? "Fair"
-                    : item.aqi <= 3
-                      ? "Moderate"
+                  : item.aqi <= 100
+                    ? "Moderate"
+                    : item.aqi <= 150
+                      ? "Unhealthy"
                       : "Poor";
               return (
                 <View key={i} style={styles.forecastDay}>
