@@ -7,6 +7,7 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [postgis]
 }
 
@@ -37,6 +38,7 @@ model User {
   impactLedger   ImpactLedger[]
   sentRequests   Friendship[]    @relation("FriendshipSender")
   receivedRequests Friendship[]  @relation("FriendshipReceiver")
+  activityLogs   ActivityLog[]
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -175,4 +177,22 @@ model AQIRecord {
   locationName String
   coordinates  Unsupported("geometry(Point, 4326)")
   timestamp    DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACTIVITY_LOG — Daily lifestyle activity tracking for eco tips
+// ─────────────────────────────────────────────────────────────
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  category  String   // transport | food | energy | waste
+  activity  String   // e.g. "drove_car", "ate_veg", "used_ac"
+  value     Float    // km driven, hours of AC, meals, kg recycled
+  carbonKg  Float    // calculated CO₂ impact (negative = offset)
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
 }

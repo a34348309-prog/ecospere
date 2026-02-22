@@ -25,6 +25,7 @@ import {
   User,
   Hash,
   ShieldCheck,
+  TreeDeciduous,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -32,17 +33,19 @@ import {
   joinEvent,
   createEvent,
   verifyAttendance,
+  getPlantationEvents,
 } from "../services/event.service";
 import { useAuthStore } from "../store/useAuthStore";
 import * as Location from "expo-location";
 
-export const Events = ({ onBack }: any) => {
+export const Events = ({ onBack, onNavigate }: any) => {
   const { user } = useAuthStore();
   const [events, setEvents] = useState<any[]>([]);
+  const [plantationEvents, setPlantationEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"upcoming" | "hosting">(
-    "upcoming",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "upcoming" | "hosting" | "plantation"
+  >("upcoming");
 
   // Host event modal
   const [showHostModal, setShowHostModal] = useState(false);
@@ -61,6 +64,7 @@ export const Events = ({ onBack }: any) => {
 
   useEffect(() => {
     fetchEvents();
+    fetchPlantation();
   }, []);
 
   const fetchEvents = async () => {
@@ -74,6 +78,17 @@ export const Events = ({ onBack }: any) => {
       console.log("Events error:", e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPlantation = async () => {
+    try {
+      const result = await getPlantationEvents();
+      if (result?.data) {
+        setPlantationEvents(result.data);
+      }
+    } catch (e) {
+      console.log("Plantation events error:", e);
     }
   };
 
@@ -258,6 +273,20 @@ export const Events = ({ onBack }: any) => {
               Your Hosting
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "plantation" && styles.activeTab]}
+            onPress={() => setActiveTab("plantation")}
+          >
+            <Text
+              style={
+                activeTab === "plantation"
+                  ? styles.activeTabText
+                  : styles.tabText
+              }
+            >
+              🌳 Plantation
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Host Event CTA */}
@@ -284,8 +313,37 @@ export const Events = ({ onBack }: any) => {
         </LinearGradient>
 
         <Text style={styles.sectionTitle}>
-          {activeTab === "upcoming" ? "Featured Events" : "Events You Host"}
+          {activeTab === "upcoming"
+            ? "Featured Events"
+            : activeTab === "hosting"
+              ? "Events You Host"
+              : "Plantation Drives"}
         </Text>
+
+        {/* Create Plantation Drive CTA — only on plantation tab */}
+        {activeTab === "plantation" && onNavigate && (
+          <TouchableOpacity
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#E8F5E9",
+              borderRadius: 14,
+              paddingVertical: 14,
+              marginBottom: 16,
+              borderWidth: 1.5,
+              borderColor: "#A5D6A7",
+              borderStyle: "dashed",
+              gap: 8,
+            }}
+            onPress={() => onNavigate("createPlantation")}
+          >
+            <Plus size={18} color="#2E7D32" />
+            <Text style={{ fontWeight: "800", color: "#2E7D32", fontSize: 14 }}>
+              Create Plantation Drive
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {loading ? (
           <View style={{ padding: 40, alignItems: "center" }}>
@@ -294,6 +352,35 @@ export const Events = ({ onBack }: any) => {
               Loading events...
             </Text>
           </View>
+        ) : activeTab === "plantation" ? (
+          plantationEvents.length === 0 ? (
+            <Card style={styles.eventCard} elevation={0}>
+              <Text
+                style={{
+                  textAlign: "center",
+                  color: Colors.textSecondary,
+                  padding: 20,
+                }}
+              >
+                No plantation events available yet.
+              </Text>
+            </Card>
+          ) : (
+            plantationEvents.map((event: any) => (
+              <PlantationEventCard
+                key={event.id}
+                event={event}
+                onVerify={() => handleVerifyPresence(event.id)}
+                isVerifying={verifying === event.id}
+                formatDate={formatDate}
+                onViewMap={() => {
+                  if (onNavigate && event.lat && event.lng) {
+                    onNavigate(`map:${event.lat}:${event.lng}`);
+                  }
+                }}
+              />
+            ))
+          )
         ) : events.length === 0 ? (
           <Card style={styles.eventCard} elevation={0}>
             <Text
@@ -318,8 +405,6 @@ export const Events = ({ onBack }: any) => {
               location={event.locationName}
               participants={`${event.currentParticipants} / ${event.maxParticipants}`}
               onJoin={() => handleJoin(event.id, event.title)}
-              onVerify={() => handleVerifyPresence(event.id)}
-              isVerifying={verifying === event.id}
             />
           ))
         )}
@@ -525,8 +610,6 @@ const EventCard = ({
   location,
   participants,
   onJoin,
-  onVerify,
-  isVerifying,
 }: any) => (
   <Card style={styles.eventCard} elevation={2}>
     <View style={styles.eventHeader}>
@@ -581,24 +664,124 @@ const EventCard = ({
         Details
       </Button>
     </View>
-
-    {/* Geofence Verify Button */}
-    <TouchableOpacity
-      style={styles.verifyBtn}
-      onPress={onVerify}
-      disabled={isVerifying}
-    >
-      {isVerifying ? (
-        <ActivityIndicator size="small" color={Colors.primary} />
-      ) : (
-        <ShieldCheck size={18} color={Colors.primary} />
-      )}
-      <Text style={styles.verifyText}>
-        {isVerifying ? "Verifying..." : "Verify Presence 📍"}
-      </Text>
-    </TouchableOpacity>
   </Card>
 );
+
+const PlantationEventCard = ({
+  event,
+  onVerify,
+  isVerifying,
+  formatDate,
+  onViewMap,
+}: any) => {
+  const progress =
+    event.treesGoal > 0 ? (event.treesPlanted / event.treesGoal) * 100 : 0;
+  const statusColor =
+    event.status === "active"
+      ? "#4CAF50"
+      : event.status === "completed"
+        ? "#9E9E9E"
+        : "#FF9800";
+
+  return (
+    <Card style={styles.eventCard} elevation={2}>
+      <View style={styles.eventHeader}>
+        <View style={[styles.eventImgBg, { backgroundColor: "#E8F5E9" }]}>
+          <TreeDeciduous size={28} color="#4CAF50" />
+        </View>
+        <View style={styles.eventInfo}>
+          <Text style={styles.eventTitle}>{event.title}</Text>
+          <Text style={styles.eventOrganizer}>by {event.organizerName}</Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+          <Text style={styles.statusText}>{event.status?.toUpperCase()}</Text>
+        </View>
+      </View>
+
+      <Text
+        style={{
+          fontSize: 13,
+          color: Colors.textSecondary,
+          marginBottom: 12,
+          lineHeight: 18,
+        }}
+      >
+        {event.description?.length > 100
+          ? event.description.substring(0, 100) + "..."
+          : event.description}
+      </Text>
+
+      <View style={styles.detailsGrid}>
+        <DetailItem
+          icon={<Calendar size={14} color={Colors.textSecondary} />}
+          text={formatDate(event.date)}
+        />
+        <DetailItem
+          icon={<MapPin size={14} color={Colors.textSecondary} />}
+          text={event.locationName}
+        />
+      </View>
+
+      {/* Tree Progress */}
+      <View style={styles.treeProgressContainer}>
+        <View style={styles.treeProgressHeader}>
+          <Text style={styles.treeProgressLabel}>🌳 Trees Planted</Text>
+          <Text style={styles.treeProgressCount}>
+            {event.treesPlanted} / {event.treesGoal}
+          </Text>
+        </View>
+        <View style={styles.treeProgressBar}>
+          <View
+            style={[
+              styles.treeProgressFill,
+              { width: `${Math.min(progress, 100)}%` },
+            ]}
+          />
+        </View>
+      </View>
+
+      {/* Geofence Verify Button — only on plantation events */}
+      {event.status !== "completed" && (
+        <TouchableOpacity
+          style={styles.verifyBtn}
+          onPress={onVerify}
+          disabled={isVerifying}
+        >
+          {isVerifying ? (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          ) : (
+            <ShieldCheck size={18} color={Colors.primary} />
+          )}
+          <Text style={styles.verifyText}>
+            {isVerifying ? "Verifying..." : "Verify Presence 📍"}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* View on Map button */}
+      {event.lat && event.lng && onViewMap && (
+        <TouchableOpacity
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 10,
+            borderRadius: 12,
+            backgroundColor: "#E3F2FD",
+            marginTop: 8,
+            gap: 6,
+          }}
+          onPress={onViewMap}
+        >
+          <MapPin size={16} color="#1565C0" />
+          <Text style={{ fontWeight: "700", color: "#1565C0", fontSize: 13 }}>
+            View on Map
+          </Text>
+        </TouchableOpacity>
+      )}
+    </Card>
+  );
+};
 
 const DetailItem = ({ icon, text }: any) => (
   <View style={styles.detailItem}>
@@ -834,5 +1017,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: Colors.primary,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  treeProgressContainer: {
+    marginBottom: 12,
+  },
+  treeProgressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  treeProgressLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  treeProgressCount: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.primary,
+  },
+  treeProgressBar: {
+    height: 8,
+    backgroundColor: "#E8F5E9",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  treeProgressFill: {
+    height: "100%",
+    backgroundColor: "#4CAF50",
+    borderRadius: 4,
   },
 });

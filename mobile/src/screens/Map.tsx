@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker, Polygon } from "react-native-maps";
 import { Text, Card } from "react-native-paper";
 import { Colors } from "../theme/colors";
 import {
@@ -30,6 +30,7 @@ import {
 import axios from "axios";
 import { API_ENDPOINTS } from "../services/api.config";
 import { useAuthStore } from "../store/useAuthStore";
+import { getPlantationEvents } from "../services/event.service";
 
 const INITIAL_REGION = {
   latitude: 42.3601,
@@ -46,7 +47,7 @@ const getAQIColor = (aqi: number) => {
   return "#9C27B0"; // Very unhealthy / Hazardous - purple
 };
 
-export const Map = ({ onBack }: any) => {
+export const Map = ({ onBack, focusLat, focusLng }: any) => {
   const [mapType, setMapType] = useState<"standard" | "satellite" | "hybrid">(
     "standard",
   );
@@ -64,6 +65,7 @@ export const Map = ({ onBack }: any) => {
   const [region, setRegion] = useState(INITIAL_REGION);
   const mapRef = useRef<MapView>(null);
   const [nearbyNGOs, setNearbyNGOs] = useState<any[]>([]);
+  const [plantationDrives, setPlantationDrives] = useState<any[]>([]);
 
   const fetchNearbyNGOs = async (lat: number, lng: number) => {
     try {
@@ -79,6 +81,37 @@ export const Map = ({ onBack }: any) => {
       console.warn("Failed to fetch nearby NGOs:", err);
     }
   };
+
+  // Fetch plantation events for markers
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await getPlantationEvents();
+        if (result?.data) {
+          setPlantationDrives(result.data);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch plantation events:", err);
+      }
+    })();
+  }, []);
+
+  // If focusLat/focusLng provided, animate to that location
+  useEffect(() => {
+    if (focusLat && focusLng) {
+      setTimeout(() => {
+        mapRef.current?.animateToRegion(
+          {
+            latitude: focusLat,
+            longitude: focusLng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          },
+          1000,
+        );
+      }, 500);
+    }
+  }, [focusLat, focusLng]);
 
   useEffect(() => {
     (async () => {
@@ -211,12 +244,12 @@ export const Map = ({ onBack }: any) => {
           {nearbyNGOs.map((ngo: any) => (
             <Marker
               key={ngo.id}
-              coordinate={{ latitude: ngo.latitude, longitude: ngo.longitude }}
+              coordinate={{ latitude: ngo.lat, longitude: ngo.lng }}
               title={ngo.name}
               description={
-                ngo.distance
-                  ? `${(ngo.distance / 1000).toFixed(1)} km away`
-                  : ngo.focus_area
+                ngo.distance_meters
+                  ? `${(ngo.distance_meters / 1000).toFixed(1)} km away`
+                  : ngo.description
               }
             >
               <View style={styles.customMarker}>
@@ -234,6 +267,48 @@ export const Map = ({ onBack }: any) => {
               </View>
             </Marker>
           ))}
+          {/* Plantation Drive Markers */}
+          {plantationDrives.map((drive: any) => (
+            <Marker
+              key={`plantation-${drive.id}`}
+              coordinate={{ latitude: drive.lat, longitude: drive.lng }}
+              title={drive.title}
+              description={`📍 ${drive.locationName} · 🌳 ${drive.treesPlanted}/${drive.treesGoal} trees`}
+            >
+              <View style={styles.customMarker}>
+                <View style={[styles.markerBubble, { borderColor: "#4CAF50" }]}>
+                  <Text style={{ fontSize: 16 }}>🌳</Text>
+                </View>
+                <Text
+                  style={[styles.markerLabel, { color: "#2E7D32" }]}
+                  numberOfLines={1}
+                >
+                  {drive.title?.length > 12
+                    ? drive.title.substring(0, 12) + "..."
+                    : drive.title}
+                </Text>
+              </View>
+            </Marker>
+          ))}
+          {/* Plantation Drive Boundary Polygons */}
+          {plantationDrives.map((drive: any) => {
+            if (!drive.boundary?.coordinates?.[0]) return null;
+            const coords = drive.boundary.coordinates[0].map(
+              ([lng, lat]: [number, number]) => ({
+                latitude: lat,
+                longitude: lng,
+              }),
+            );
+            return (
+              <Polygon
+                key={`boundary-${drive.id}`}
+                coordinates={coords}
+                fillColor="rgba(76, 175, 80, 0.25)"
+                strokeColor="#2E7D32"
+                strokeWidth={2}
+              />
+            );
+          })}
           {/* AQI marker at user location */}
           {userLocation && aqiData && (
             <Marker

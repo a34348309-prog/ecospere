@@ -77,7 +77,7 @@ export const updateLocation = async (
     // 4. Cache the result for this tile
     cacheTileAQI(tileId, result);
 
-    // 5. Broadcast AQI update to everyone in this tile
+    // 5. Broadcast update to everyone in this tile
     const tilePayload = {
       aqi: result.aqiValue,
       status: result.status,

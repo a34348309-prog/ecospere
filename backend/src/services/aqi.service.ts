@@ -78,12 +78,14 @@ export const fetchAQI = async (
   lng: number,
 ): Promise<AQIResult> => {
   // 1. Try OpenWeather Air Pollution API (primary)
+  console.log("[AQIIIIIIIIIII] Using OpenWeather APIIIIIIIIIIIIIIIIIIII");
   const owKey = process.env.OPENWEATHER_API_KEY;
   if (owKey && owKey !== "YOUR_OPENWEATHER_API_KEY") {
     try {
       const response = await axios.get(
         `${OPENWEATHER_AQI_URL}?lat=${lat}&lon=${lng}&appid=${owKey}`,
       );
+      console.log("[AQI] OpenWeather API response:", response.data);
       const entry = response.data?.list?.[0];
       if (entry) {
         const rawAqi = entry.main.aqi;
@@ -104,6 +106,7 @@ export const fetchAQI = async (
   // 2. Fallback to WAQI
   const waqiKey = process.env.AQI_API_KEY;
   if (waqiKey) {
+    console.log("[AQI] Using WAQI API");
     try {
       const response = await axios.get(
         `${WAQI_BASE_URL}/geo:${lat};${lng}/?token=${waqiKey}`,

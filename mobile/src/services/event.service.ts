@@ -51,7 +51,7 @@ export const verifyAttendance = async (
   try {
     const response = await axios.post(
       `${API_ENDPOINTS.EVENTS}/verify-attendance`,
-      { eventId, userLat: lat, userLng: lng },
+      { eventId, lat, lng },
       getHeaders(),
     );
     return response.data;
@@ -94,5 +94,52 @@ export const createEvent = async (eventData: {
       throw error.response.data?.error?.message || "Failed to create event";
     }
     throw "Cannot connect to server. Please check your connection.";
+  }
+};
+
+export const createPlantationEvent = async (eventData: {
+  title: string;
+  description: string;
+  organizerName: string;
+  date: string;
+  locationName: string;
+  treesGoal?: number;
+  boundary: number[][];
+}) => {
+  try {
+    const response = await axios.post(
+      API_ENDPOINTS.PLANTATION,
+      eventData,
+      getHeaders(),
+    );
+    return response.data;
+  } catch (error: any) {
+    if (error.response) {
+      const validationDetails = error.response.data?.error?.details;
+      if (validationDetails && Array.isArray(validationDetails)) {
+        const fieldErrors = validationDetails
+          .map((d: any) => `${d.field}: ${d.message}`)
+          .join("\n");
+        throw fieldErrors;
+      }
+      throw (
+        error.response.data?.error?.message ||
+        "Failed to create plantation event"
+      );
+    }
+    throw "Cannot connect to server. Please check your connection.";
+  }
+};
+
+export const getImpactLedger = async () => {
+  try {
+    const response = await axios.get(
+      `${API_ENDPOINTS.EVENTS}/impact`,
+      getHeaders(),
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching impact ledger:", error);
+    return { data: [] };
   }
 };

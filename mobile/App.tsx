@@ -21,6 +21,8 @@ import {
   Events,
   Journey,
   KnowledgeHub,
+  CreatePlantationDrive,
+  EcoTracker,
 } from "./src/screens";
 import { useAuthStore } from "./src/store/useAuthStore";
 import { Colors } from "./src/theme/colors";
@@ -365,10 +367,32 @@ export default function App() {
       case "map":
         return <Map onBack={goBack} />;
       case "events":
-        return <Events onBack={goBack} />;
+        return (
+          <Events
+            onBack={goBack}
+            onNavigate={(screen: string) => setCurrentScreen(screen)}
+          />
+        );
+      case "createPlantation":
+        return <CreatePlantationDrive onBack={goBack} />;
+      case "ecoTracker":
+        return <EcoTracker onBack={goBack} />;
       case "journey":
         return <Journey onBack={goBack} />;
       default:
+        // Handle map:lat:lng format for focused map navigation
+        if (currentScreen.startsWith("map:")) {
+          const parts = currentScreen.split(":");
+          const focusLat = parseFloat(parts[1]);
+          const focusLng = parseFloat(parts[2]);
+          return (
+            <Map
+              onBack={goBack}
+              focusLat={isNaN(focusLat) ? undefined : focusLat}
+              focusLng={isNaN(focusLng) ? undefined : focusLng}
+            />
+          );
+        }
         return (
           <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />
         );
