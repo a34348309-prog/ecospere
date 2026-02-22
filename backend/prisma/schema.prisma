@@ -7,6 +7,7 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [postgis]
 }
 
@@ -37,6 +38,9 @@ model User {
   impactLedger   ImpactLedger[]
   sentRequests   Friendship[]    @relation("FriendshipSender")
   receivedRequests Friendship[]  @relation("FriendshipReceiver")
+  activityLogs   ActivityLog[]
+  lifestyleProfile LifestyleProfile?
+  ecoPlan          UserEcoPlan?
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -175,4 +179,122 @@ model AQIRecord {
   locationName String
   coordinates  Unsupported("geometry(Point, 4326)")
   timestamp    DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// ACTIVITY_LOG — Daily lifestyle activity tracking for eco tips
+// ─────────────────────────────────────────────────────────────
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  category  String   // transport | food | energy | waste
+  activity  String   // e.g. "drove_car", "ate_veg", "used_ac"
+  value     Float    // km driven, hours of AC, meals, kg recycled
+  carbonKg  Float    // calculated CO₂ impact (negative = offset)
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
+}
+
+// ─────────────────────────────────────────────────────────────
+// LIFESTYLE_PROFILE — User preferences & lifestyle data for eco plan
+// ─────────────────────────────────────────────────────────────
+model LifestyleProfile {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  commuteDistance        Float    @default(0)       // km per day
+  vehicleType           String   @default("none")   // car | bike | public_transport | none
+  monthlyElectricity    Float    @default(0)        // kWh
+  age                   Int      @default(25)
+  city                  String   @default("")
+  dietaryPreference     String   @default("non_vegetarian") // non_vegetarian | vegetarian | vegan | flexitarian
+  meatMealsPerWeek      Int      @default(7)
+  hasGarden             Boolean  @default(false)
+  homeOwnership         String   @default("rent")   // own | rent
+  householdSize         Int      @default(1)
+  acUsageHours          Float    @default(0)        // hours per day in summer
+  wasteRecycling        String   @default("sometimes") // always | sometimes | never
+  monthlyGroceryBill    Float    @default(0)        // approx ₹
+  willingnessChangeDiet Int      @default(3)        // 1-5 scale
+  willingnessPublicTransport Int @default(3)        // 1-5 scale
+  timeAvailability      String   @default("medium") // low | medium | high
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─────────────────────────────────────────────────────────────
+// ECO_ACTION — Database of all possible eco-actions
+// ─────────────────────────────────────────────────────────────
+model EcoAction {
+  id              String   @id @default(uuid())
+  name            String
+  category        String   // energy | transport | diet | waste | tree_planting
+  description     String
+  icon            String   @default("🌱")
+  carbonSavedKg   Float    // kg CO₂ saved per month
+  monthlySavings  Float    @default(0) // ₹ saved per month
+  upfrontCost     Float    @default(0) // ₹ one-time cost
+  difficulty      Int      @default(3) // 1-5 scale
+  phase           String   @default("short_term") // immediate | short_term | medium_term | long_term
+  requiresGarden  Boolean  @default(false)
+  requiresHomeOwnership Boolean @default(false)
+  minHouseholdSize Int     @default(1)
+  applicableVehicles String[] @default([])  // empty = all
+  applicableDiets    String[] @default([])  // empty = all
+  treesEquivalent Float    @default(0) // trees offset equivalent per month
+  tips            String   @default("")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  planActions UserPlanAction[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// USER_ECO_PLAN — Saved personalized plan for each user
+// ─────────────────────────────────────────────────────────────
+model UserEcoPlan {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  treesNeeded          Int      @default(0)       // total tree debt
+  treesReducedByActions Float   @default(0)       // trees offset via lifestyle changes
+  treesRemaining       Float   @default(0)        // trees left to sponsor
+  totalMonthlySavings  Float   @default(0)        // ₹ per month
+  totalUpfrontCost     Float   @default(0)        // ₹ one-time
+  totalYearlySavings   Float   @default(0)        // ₹ year 1 net
+  totalCO2Reduced      Float   @default(0)        // kg CO₂ reduced annually
+  sponsorCost          Float   @default(0)        // ₹ to sponsor remaining trees
+  netSavingsYear1      Float   @default(0)        // ₹ net savings year 1
+  planData             Json?                       // full serialized plan JSON
+  generatedAt          DateTime @default(now())
+  expiresAt            DateTime                   // plan regeneration window
+  completionPercent    Float    @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id])
+  actions UserPlanAction[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// USER_PLAN_ACTION — Tracks user progress on each action in plan
+// ─────────────────────────────────────────────────────────────
+model UserPlanAction {
+  id          String   @id @default(uuid())
+  planId      String
+  actionId    String
+  phase       String   // immediate | short_term | medium_term | long_term
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  score       Float    @default(0)  // personalized relevance score
+  createdAt   DateTime @default(now())
+
+  plan   UserEcoPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  action EcoAction   @relation(fields: [actionId], references: [id])
+
+  @@unique([planId, actionId])
 }

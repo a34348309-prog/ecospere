@@ -1,25 +1,54 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
-import { Provider as PaperProvider, Text } from 'react-native-paper';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Splash, Login, Signup, Home, Calculator, Leaderboard, Profile, Map, Events, Journey, KnowledgeHub } from './src/screens';
-import { useAuthStore } from './src/store/useAuthStore';
-import { Colors } from './src/theme/colors';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+  Image,
+  Animated,
+} from "react-native";
+import { Provider as PaperProvider, Text } from "react-native-paper";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import {
+  Splash,
+  Login,
+  Signup,
+  Home,
+  Calculator,
+  Leaderboard,
+  Profile,
+  Map,
+  Events,
+  Journey,
+  KnowledgeHub,
+  CreatePlantationDrive,
+  EcoTracker,
+  PreferenceForm,
+  EcoPlanScreen,
+} from "./src/screens";
+import { useAuthStore } from "./src/store/useAuthStore";
+import { Colors } from "./src/theme/colors";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  connectSocket,
+  disconnectSocket,
+  onAQIAlert,
+  onAQIUpdate,
+} from "./src/services/socket.service";
 import {
   Home as HomeIcon,
   Calculator as CalcIcon,
   Trophy,
   User,
-  BookOpen
-} from 'lucide-react-native';
+  BookOpen,
+} from "lucide-react-native";
 
 const TAB_ITEMS = [
-  { key: 'home', label: 'Home', icon: HomeIcon },
-  { key: 'calculator', label: 'Calculate', icon: CalcIcon },
-  { key: 'learn', label: 'Learn', icon: BookOpen },
-  { key: 'leaderboard', label: 'Ranking', icon: Trophy },
-  { key: 'profile', label: 'Profile', icon: User },
+  { key: "home", label: "Home", icon: HomeIcon },
+  { key: "calculator", label: "Calculate", icon: CalcIcon },
+  { key: "learn", label: "Learn", icon: BookOpen },
+  { key: "leaderboard", label: "Ranking", icon: Trophy },
+  { key: "profile", label: "Profile", icon: User },
 ];
 
 const BottomTabBar = ({ activeTab, onTabPress, onMenuPress }: any) => {
@@ -35,20 +64,53 @@ const BottomTabBar = ({ activeTab, onTabPress, onMenuPress }: any) => {
   };
 
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', bottom: 0, width: '100%' }}>
+    <View
+      pointerEvents="box-none"
+      style={{ position: "absolute", bottom: 0, width: "100%" }}
+    >
       {/* Pop-up Menu */}
       {menuOpen && (
         <View style={tabStyles.menuContainer}>
-          <TouchableOpacity onPress={() => handleMenuItemPress('journey')} style={[tabStyles.menuItem, { backgroundColor: '#00C853', marginBottom: 10 }]}>
-            <Image source={{ uri: 'https://img.icons8.com/?size=100&id=118916&format=png&color=FFFFFF' }} style={{ width: 24, height: 24, marginRight: 8 }} />
+          <TouchableOpacity
+            onPress={() => handleMenuItemPress("journey")}
+            style={[
+              tabStyles.menuItem,
+              { backgroundColor: "#00C853", marginBottom: 10 },
+            ]}
+          >
+            <Image
+              source={{
+                uri: "https://img.icons8.com/?size=100&id=118916&format=png&color=FFFFFF",
+              }}
+              style={{ width: 24, height: 24, marginRight: 8 }}
+            />
             <Text style={tabStyles.menuText}>Journey</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleMenuItemPress('events')} style={[tabStyles.menuItem, { backgroundColor: '#00BFA5', marginBottom: 10 }]}>
-            <Image source={{ uri: 'https://img.icons8.com/?size=100&id=84022&format=png&color=FFFFFF' }} style={{ width: 24, height: 24, marginRight: 8 }} />
+          <TouchableOpacity
+            onPress={() => handleMenuItemPress("events")}
+            style={[
+              tabStyles.menuItem,
+              { backgroundColor: "#00BFA5", marginBottom: 10 },
+            ]}
+          >
+            <Image
+              source={{
+                uri: "https://img.icons8.com/?size=100&id=84022&format=png&color=FFFFFF",
+              }}
+              style={{ width: 24, height: 24, marginRight: 8 }}
+            />
             <Text style={tabStyles.menuText}>Events</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => handleMenuItemPress('map')} style={[tabStyles.menuItem, { backgroundColor: '#03A9F4' }]}>
-            <Image source={{ uri: 'https://img.icons8.com/?size=100&id=7880&format=png&color=FFFFFF' }} style={{ width: 24, height: 24, marginRight: 8 }} />
+          <TouchableOpacity
+            onPress={() => handleMenuItemPress("map")}
+            style={[tabStyles.menuItem, { backgroundColor: "#03A9F4" }]}
+          >
+            <Image
+              source={{
+                uri: "https://img.icons8.com/?size=100&id=7880&format=png&color=FFFFFF",
+              }}
+              style={{ width: 24, height: 24, marginRight: 8 }}
+            />
             <Text style={tabStyles.menuText}>Map</Text>
           </TouchableOpacity>
         </View>
@@ -62,11 +124,20 @@ const BottomTabBar = ({ activeTab, onTabPress, onMenuPress }: any) => {
           style={tabStyles.centerButton}
         >
           <LinearGradient
-            colors={['#00C853', '#009688']}
+            colors={["#00C853", "#009688"]}
             style={tabStyles.centerButtonGradient}
           >
             <View style={tabStyles.plusIcon}>
-              <Text style={{ fontSize: 32, color: '#fff', fontWeight: '300', marginTop: -4 }}>+</Text>
+              <Text
+                style={{
+                  fontSize: 32,
+                  color: "#fff",
+                  fontWeight: "300",
+                  marginTop: -4,
+                }}
+              >
+                +
+              </Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -90,7 +161,11 @@ const BottomTabBar = ({ activeTab, onTabPress, onMenuPress }: any) => {
                 color={isActive ? Colors.primary : Colors.textLight}
                 strokeWidth={isActive ? 2.5 : 2}
               />
-              <Text style={[tabStyles.label, isActive && tabStyles.labelActive]}>{item.label}</Text>
+              <Text
+                style={[tabStyles.label, isActive && tabStyles.labelActive]}
+              >
+                {item.label}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -101,36 +176,41 @@ const BottomTabBar = ({ activeTab, onTabPress, onMenuPress }: any) => {
 
 const tabStyles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
     paddingBottom: 20,
     paddingTop: 12,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     elevation: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     height: 80,
-    alignItems: 'center'
+    alignItems: "center",
   },
-  tab: { flex: 1, alignItems: 'center' },
-  label: { fontSize: 10, color: Colors.textLight, marginTop: 4, fontWeight: '600' },
-  labelActive: { color: Colors.primary, fontWeight: '800' },
+  tab: { flex: 1, alignItems: "center" },
+  label: {
+    fontSize: 10,
+    color: Colors.textLight,
+    marginTop: 4,
+    fontWeight: "600",
+  },
+  labelActive: { color: Colors.primary, fontWeight: "800" },
   centerButtonContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 90, // Positioned ABOVE the tab bar (height 80)
-    alignSelf: 'center',
-    alignItems: 'center',
-    zIndex: 10
+    alignSelf: "center",
+    alignItems: "center",
+    zIndex: 10,
   },
   centerButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
     elevation: 10,
-    shadowColor: '#00C853',
+    shadowColor: "#00C853",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -138,47 +218,115 @@ const tabStyles = StyleSheet.create({
   centerButtonGradient: {
     flex: 1,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
-    borderColor: '#fff'
+    borderColor: "#fff",
   },
   plusIcon: {
     width: 30,
     height: 30,
-    justifyContent: 'center',
-    alignItems: 'center'
+    justifyContent: "center",
+    alignItems: "center",
   },
   menuContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 160, // Above the FAB
-    alignSelf: 'center',
-    alignItems: 'center',
-    zIndex: 20
+    alignSelf: "center",
+    alignItems: "center",
+    zIndex: 20,
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 25,
     elevation: 5,
     minWidth: 140,
-    justifyContent: 'center'
+    justifyContent: "center",
   },
   menuText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16
-  }
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
 });
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('splash');
-  const [activeTab, setActiveTab] = useState('home');
+  const [currentScreen, setCurrentScreen] = useState("splash");
+  const [activeTab, setActiveTab] = useState("home");
   const { user, logout } = useAuthStore();
+  const [alertData, setAlertData] = useState<{
+    aqi: number;
+    status: string;
+    message: string;
+  } | null>(null);
+  const alertAnim = useRef(new Animated.Value(-100)).current;
 
-  const isTabScreen = ['home', 'calculator', 'learn', 'leaderboard', 'profile'].includes(currentScreen);
+  // Socket.io: connect on login, disconnect on logout
+  useEffect(() => {
+    if (user?.id) {
+      connectSocket(user.id);
+
+      // Personal unhealthy AQI alerts (orange banner)
+      const unsubAlert = onAQIAlert((data) => {
+        setAlertData({ ...data, type: "alert" } as any);
+        Animated.sequence([
+          Animated.timing(alertAnim, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.delay(5000),
+          Animated.timing(alertAnim, {
+            toValue: -100,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => setAlertData(null));
+      });
+
+      // Tile-based AQI updates (blue info banner — only show if noteworthy)
+      const unsubUpdate = onAQIUpdate((data) => {
+        if (data.usersInTile > 1) {
+          setAlertData({
+            aqi: data.aqi,
+            status: data.status,
+            message: `Someone nearby updated AQI: ${data.aqi} (${data.usersInTile} users in your area)`,
+            type: "update",
+          } as any);
+          Animated.sequence([
+            Animated.timing(alertAnim, {
+              toValue: 0,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.delay(4000),
+            Animated.timing(alertAnim, {
+              toValue: -100,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+          ]).start(() => setAlertData(null));
+        }
+      });
+
+      return () => {
+        unsubAlert();
+        unsubUpdate();
+        disconnectSocket();
+      };
+    }
+  }, [user?.id]);
+
+  const isTabScreen = [
+    "home",
+    "calculator",
+    "learn",
+    "leaderboard",
+    "profile",
+  ].includes(currentScreen);
 
   const goBack = () => {
     setCurrentScreen(activeTab);
@@ -187,51 +335,97 @@ export default function App() {
   const renderScreen = () => {
     if (!user) {
       switch (currentScreen) {
-        case 'splash':
-          return <Splash onFinish={() => setCurrentScreen('login')} />;
-        case 'login':
-          return (
-            <Login
-              onGoToSignup={() => setCurrentScreen('signup')}
-            />
-          );
-        case 'signup':
-          return (
-            <Signup
-              onGoToLogin={() => setCurrentScreen('login')}
-            />
-          );
+        case "splash":
+          return <Splash onFinish={() => setCurrentScreen("login")} />;
+        case "login":
+          return <Login onGoToSignup={() => setCurrentScreen("signup")} />;
+        case "signup":
+          return <Signup onGoToLogin={() => setCurrentScreen("login")} />;
         default:
-          return <Splash onFinish={() => setCurrentScreen('login')} />;
+          return <Splash onFinish={() => setCurrentScreen("login")} />;
       }
     }
 
     switch (currentScreen) {
-      case 'home':
-        return <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />;
-      case 'calculator':
+      case "home":
+        return (
+          <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />
+        );
+      case "calculator":
         return <Calculator />;
-      case 'learn':
+      case "learn":
         return <KnowledgeHub />;
-      case 'leaderboard':
+      case "leaderboard":
         return <Leaderboard />;
-      case 'profile':
-        return <Profile onLogout={() => { logout(); setCurrentScreen('login'); }} />;
-      case 'map':
+      case "profile":
+        return (
+          <Profile
+            onLogout={() => {
+              logout();
+              setCurrentScreen("login");
+            }}
+          />
+        );
+      case "map":
         return <Map onBack={goBack} />;
-      case 'events':
-        return <Events onBack={goBack} />;
-      case 'journey':
+      case "events":
+        return (
+          <Events
+            onBack={goBack}
+            onNavigate={(screen: string) => setCurrentScreen(screen)}
+          />
+        );
+      case "createPlantation":
+        return <CreatePlantationDrive onBack={goBack} />;
+      case "ecoTracker":
+        return <EcoTracker onBack={goBack} />;
+      case "journey":
         return <Journey onBack={goBack} />;
+      case "ecoPlan":
+        return (
+          <EcoPlanScreen
+            onBack={goBack}
+            onNavigate={(screen: string) => setCurrentScreen(screen)}
+          />
+        );
+      case "ecoPlanForm":
+        return (
+          <PreferenceForm
+            onBack={goBack}
+            onPlanGenerated={(plan: any) => {
+              setCurrentScreen("ecoPlan");
+            }}
+          />
+        );
       default:
-        return <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />;
+        // Handle map:lat:lng format for focused map navigation
+        if (currentScreen.startsWith("map:")) {
+          const parts = currentScreen.split(":");
+          const focusLat = parseFloat(parts[1]);
+          const focusLng = parseFloat(parts[2]);
+          return (
+            <Map
+              onBack={goBack}
+              focusLat={isNaN(focusLat) ? undefined : focusLat}
+              focusLng={isNaN(focusLng) ? undefined : focusLng}
+            />
+          );
+        }
+        return (
+          <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />
+        );
     }
   };
 
   React.useEffect(() => {
-    if (user && (currentScreen === 'login' || currentScreen === 'signup' || currentScreen === 'splash')) {
-      setCurrentScreen('home');
-      setActiveTab('home');
+    if (
+      user &&
+      (currentScreen === "login" ||
+        currentScreen === "signup" ||
+        currentScreen === "splash")
+    ) {
+      setCurrentScreen("home");
+      setActiveTab("home");
     }
   }, [user]);
 
@@ -249,16 +443,101 @@ export default function App() {
       <PaperProvider>
         <SafeAreaView
           style={{ flex: 1, backgroundColor: Colors.background }}
-          edges={currentScreen === 'splash' ? ['left', 'right'] : undefined}
+          edges={currentScreen === "splash" ? ["left", "right"] : undefined}
         >
-          <View style={{ flex: 1 }}>
-            {renderScreen()}
-          </View>
+          <View style={{ flex: 1 }}>{renderScreen()}</View>
+          {/* Real-time AQI Banner (orange = alert, blue = tile update) */}
+          {alertData &&
+            (() => {
+              const isAlert = (alertData as any).type === "alert";
+              return (
+                <Animated.View
+                  style={[
+                    alertStyles.banner,
+                    {
+                      transform: [{ translateY: alertAnim }],
+                      backgroundColor: isAlert ? "#FFF3E0" : "#E3F2FD",
+                      borderColor: isAlert ? "#FFE0B2" : "#90CAF9",
+                    },
+                  ]}
+                >
+                  <Text style={alertStyles.alertIcon}>
+                    {isAlert ? "⚠️" : "📡"}
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        alertStyles.alertTitle,
+                        { color: isAlert ? "#E65100" : "#0D47A1" },
+                      ]}
+                    >
+                      {isAlert
+                        ? `AQI Alert — ${alertData.status}`
+                        : `Area Update — AQI ${alertData.aqi}`}
+                    </Text>
+                    <Text
+                      style={[
+                        alertStyles.alertMsg,
+                        { color: isAlert ? "#BF360C" : "#1565C0" },
+                      ]}
+                    >
+                      {alertData.message}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAlertData(null);
+                      alertAnim.setValue(-100);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        alertStyles.dismiss,
+                        { color: isAlert ? "#E65100" : "#0D47A1" },
+                      ]}
+                    >
+                      ✕
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })()}
           {user && isTabScreen && (
-            <BottomTabBar activeTab={activeTab} onTabPress={handleTabPress} onMenuPress={handleMenuPress} />
+            <BottomTabBar
+              activeTab={activeTab}
+              onTabPress={handleTabPress}
+              onMenuPress={handleMenuPress}
+            />
           )}
         </SafeAreaView>
       </PaperProvider>
     </SafeAreaProvider>
   );
 }
+
+const alertStyles = StyleSheet.create({
+  banner: {
+    position: "absolute",
+    top: 50,
+    left: 16,
+    right: 16,
+    backgroundColor: "#FFF3E0",
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FFE0B2",
+    zIndex: 999,
+    gap: 12,
+  },
+  alertIcon: { fontSize: 24 },
+  alertTitle: { fontSize: 14, fontWeight: "800", color: "#E65100" },
+  alertMsg: { fontSize: 12, color: "#BF360C", marginTop: 2 },
+  dismiss: { fontSize: 18, color: "#E65100", fontWeight: "700", padding: 4 },
+});
