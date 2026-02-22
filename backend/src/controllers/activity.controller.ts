@@ -6,6 +6,7 @@ import {
   generateEcoTips,
   getActivityOptions,
 } from "../services/activity.service";
+import { optimizeCarbonDiet } from "../services/optimizer.service";
 
 /**
  * POST /api/v1/activities
@@ -108,6 +109,27 @@ export const getOptions = async (
   try {
     const options = getActivityOptions();
     res.json({ success: true, data: options });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/activities/optimize?effort=15
+ * Get optimal carbon reduction plan using Knapsack algorithm.
+ */
+export const getOptimizedPlan = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const effort = parseInt(req.query.effort as string) || 15;
+    const clamped = Math.min(Math.max(effort, 5), 50); // clamp 5-50
+
+    const plan = optimizeCarbonDiet(clamped);
+
+    res.json({ success: true, data: plan });
   } catch (error) {
     next(error);
   }

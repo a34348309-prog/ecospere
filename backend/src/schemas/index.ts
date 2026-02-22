@@ -85,6 +85,38 @@ export const logActivitySchema = z.object({
   date: z.string().optional(),
 });
 
+// ─────────────────────────────────────────────────────────────
+// ECO PLAN Schemas
+// ─────────────────────────────────────────────────────────────
+export const generateEcoPlanSchema = z.object({
+  commuteDistance: z.number().min(0, "Commute distance must be 0 or more"),
+  vehicleType: z.enum(["car", "bike", "public_transport", "none"]),
+  monthlyElectricity: z.number().min(0, "Electricity must be 0 or more"),
+  age: z.number().int().min(10).max(120),
+  city: z.string().min(1, "City is required"),
+  dietaryPreference: z.enum([
+    "non_vegetarian",
+    "vegetarian",
+    "vegan",
+    "flexitarian",
+  ]),
+  meatMealsPerWeek: z.number().int().min(0).max(21),
+  hasGarden: z.boolean(),
+  homeOwnership: z.enum(["own", "rent"]),
+  householdSize: z.number().int().min(1).max(20),
+  acUsageHours: z.number().min(0).max(24),
+  wasteRecycling: z.enum(["always", "sometimes", "never"]),
+  monthlyGroceryBill: z.number().min(0),
+  willingnessChangeDiet: z.number().int().min(1).max(5),
+  willingnessPublicTransport: z.number().int().min(1).max(5),
+  timeAvailability: z.enum(["low", "medium", "high"]),
+});
+
+export const updateProgressSchema = z.object({
+  actionId: z.string().uuid("Invalid action ID"),
+  isCompleted: z.boolean(),
+});
+
 // Type exports
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -94,3 +126,5 @@ export type CreatePlantationEventInput = z.infer<
   typeof createPlantationEventSchema
 >;
 export type LogActivityInput = z.infer<typeof logActivitySchema>;
+export type GenerateEcoPlanInput = z.infer<typeof generateEcoPlanSchema>;
+export type UpdateProgressInput = z.infer<typeof updateProgressSchema>;

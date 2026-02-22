@@ -25,4 +25,5 @@ export const API_ENDPOINTS = {
   FRIENDS: `${API_BASE_URL}/friends`,
   PLANTATION: `${API_BASE_URL}/events/plantation`,
   ACTIVITIES: `${API_BASE_URL}/activities`,
+  ECO_PLAN: `${API_BASE_URL}/eco-plan`,
 };

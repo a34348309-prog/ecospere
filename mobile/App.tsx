@@ -23,6 +23,8 @@ import {
   KnowledgeHub,
   CreatePlantationDrive,
   EcoTracker,
+  PreferenceForm,
+  EcoPlanScreen,
 } from "./src/screens";
 import { useAuthStore } from "./src/store/useAuthStore";
 import { Colors } from "./src/theme/colors";
@@ -379,6 +381,22 @@ export default function App() {
         return <EcoTracker onBack={goBack} />;
       case "journey":
         return <Journey onBack={goBack} />;
+      case "ecoPlan":
+        return (
+          <EcoPlanScreen
+            onBack={goBack}
+            onNavigate={(screen: string) => setCurrentScreen(screen)}
+          />
+        );
+      case "ecoPlanForm":
+        return (
+          <PreferenceForm
+            onBack={goBack}
+            onPlanGenerated={(plan: any) => {
+              setCurrentScreen("ecoPlan");
+            }}
+          />
+        );
       default:
         // Handle map:lat:lng format for focused map navigation
         if (currentScreen.startsWith("map:")) {

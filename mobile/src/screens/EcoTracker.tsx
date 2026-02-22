@@ -15,11 +15,13 @@ import {
   Leaf,
   TrendingDown,
   Lightbulb,
+  Target,
 } from "lucide-react-native";
 import {
   logActivity,
   getWeeklySummary,
   getEcoTips,
+  getOptimizedPlan,
 } from "../services/activity.service";
 
 // ── Activity definitions ──
@@ -103,6 +105,11 @@ export const EcoTracker = ({ onBack }: any) => {
   const [summary, setSummary] = useState<any>(null);
   const [tips, setTips] = useState<any[]>([]);
   const [tipsLoading, setTipsLoading] = useState(true);
+
+  // Carbon Diet Optimizer state
+  const [effortLevel, setEffortLevel] = useState<number | null>(null);
+  const [optimizedPlan, setOptimizedPlan] = useState<any>(null);
+  const [planLoading, setPlanLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -643,6 +650,249 @@ export const EcoTracker = ({ onBack }: any) => {
               </View>
             </Card>
           ))
+        )}
+        {/* ── Carbon Diet Optimizer ── */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 12,
+            marginTop: 24,
+          }}
+        >
+          <Target size={20} color="#6A1B9A" />
+          <Text style={{ fontSize: 16, fontWeight: "800", color: Colors.text }}>
+            Carbon Diet Optimizer
+          </Text>
+        </View>
+        <Text
+          style={{
+            fontSize: 12,
+            color: Colors.textSecondary,
+            marginBottom: 14,
+            lineHeight: 18,
+          }}
+        >
+          How much effort can you put in this week? We'll find the best
+          combination of actions to maximize your CO₂ savings.
+        </Text>
+
+        {/* Effort level selector */}
+        <View
+          style={{
+            flexDirection: "row",
+            gap: 10,
+            marginBottom: 16,
+          }}
+        >
+          {[
+            { label: "😌 Easy", value: 10, color: "#4CAF50", bg: "#E8F5E9" },
+            { label: "💪 Medium", value: 20, color: "#FF9800", bg: "#FFF3E0" },
+            { label: "🔥 Beast", value: 35, color: "#D32F2F", bg: "#FFEBEE" },
+          ].map((opt) => {
+            const active = effortLevel === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                style={{
+                  flex: 1,
+                  backgroundColor: active ? opt.color : opt.bg,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  borderWidth: active ? 0 : 1.5,
+                  borderColor: opt.color + "40",
+                }}
+                onPress={async () => {
+                  setEffortLevel(opt.value);
+                  setPlanLoading(true);
+                  try {
+                    const res = await getOptimizedPlan(opt.value);
+                    if (res?.data) setOptimizedPlan(res.data);
+                  } catch (e) {
+                    console.warn("Optimizer error:", e);
+                  } finally {
+                    setPlanLoading(false);
+                  }
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "800",
+                    color: active ? "#fff" : opt.color,
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Optimizer results */}
+        {planLoading && (
+          <ActivityIndicator
+            size="large"
+            color="#6A1B9A"
+            style={{ padding: 30 }}
+          />
+        )}
+
+        {!planLoading && optimizedPlan && (
+          <Card
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 20,
+              marginBottom: 12,
+              elevation: 3,
+              borderLeftWidth: 4,
+              borderLeftColor: "#6A1B9A",
+            }}
+          >
+            <View style={{ padding: 20 }}>
+              {/* Summary badge */}
+              <View
+                style={{
+                  backgroundColor: "#F3E5F5",
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 16,
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <View>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "700",
+                      color: "#7B1FA2",
+                    }}
+                  >
+                    Optimal Savings
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 26,
+                      fontWeight: "900",
+                      color: "#6A1B9A",
+                    }}
+                  >
+                    {optimizedPlan.totalSavings} kg
+                  </Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "700",
+                      color: "#7B1FA2",
+                    }}
+                  >
+                    Effort Used
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: "800",
+                      color: "#7B1FA2",
+                    }}
+                  >
+                    {optimizedPlan.difficultyUsed}/{optimizedPlan.maxDifficulty}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action list */}
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "800",
+                  color: Colors.text,
+                  marginBottom: 12,
+                }}
+              >
+                Your Optimal Action Plan
+              </Text>
+              {optimizedPlan.actions.map((action: any, i: number) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 10,
+                    borderBottomWidth:
+                      i < optimizedPlan.actions.length - 1 ? 1 : 0,
+                    borderBottomColor: "#F0F2F5",
+                    gap: 12,
+                  }}
+                >
+                  <Text style={{ fontSize: 24 }}>{action.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "700",
+                        color: Colors.text,
+                      }}
+                    >
+                      {action.name}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: Colors.textSecondary,
+                        marginTop: 2,
+                      }}
+                    >
+                      {action.tip}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "900",
+                        color: "#2E7D32",
+                      }}
+                    >
+                      -{action.carbonSaved}kg
+                    </Text>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 2,
+                        marginTop: 2,
+                      }}
+                    >
+                      {Array.from({ length: action.difficulty }).map(
+                        (_: any, d: number) => (
+                          <View
+                            key={d}
+                            style={{
+                              width: 4,
+                              height: 4,
+                              borderRadius: 2,
+                              backgroundColor:
+                                action.difficulty <= 3
+                                  ? "#4CAF50"
+                                  : action.difficulty <= 6
+                                    ? "#FF9800"
+                                    : "#D32F2F",
+                            }}
+                          />
+                        ),
+                      )}
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </Card>
         )}
       </ScrollView>
     </View>

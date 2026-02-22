@@ -17,6 +17,7 @@ import locationRoutes from "./routes/location.routes";
 import carbonRoutes from "./routes/carbon.routes";
 import friendRoutes from "./routes/friend.routes";
 import activityRoutes from "./routes/activity.routes";
+import ecoPlanRoutes from "./routes/ecoPlan.routes";
 
 dotenv.config();
 
@@ -60,6 +61,7 @@ app.use("/api/v1/location", locationRoutes);
 app.use("/api/v1/carbon", carbonRoutes);
 app.use("/api/v1/friends", friendRoutes);
 app.use("/api/v1/activities", activityRoutes);
+app.use("/api/v1/eco-plan", ecoPlanRoutes);
 
 // ─── Legacy Routes (backward compatibility) ─────────────────
 app.use("/auth", authRoutes);
@@ -85,6 +87,7 @@ app.get("/", (req, res) => {
       location: "/api/v1/location",
       carbon: "/api/v1/carbon",
       activities: "/api/v1/activities",
+      ecoPlan: "/api/v1/eco-plan",
     },
   });
 });

@@ -17,6 +17,7 @@ import {
   Map as MapIcon,
   TrendingUp,
   Wind,
+  Target,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../store/useAuthStore";
@@ -275,6 +276,11 @@ export const Home = ({ onNavigate }: any) => {
           icon={<Leaf size={24} color="#4CAF50" />}
           label="Eco Tracker"
           onPress={() => onNavigate("ecoTracker")}
+        />
+        <QuickAction
+          icon={<Target size={24} color="#00897B" />}
+          label="Eco Plan"
+          onPress={() => onNavigate("ecoPlan")}
         />
       </View>
 

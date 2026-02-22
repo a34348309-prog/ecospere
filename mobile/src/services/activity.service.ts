@@ -78,3 +78,19 @@ export const getEcoTips = async () => {
     return { success: false, data: null };
   }
 };
+
+/**
+ * Get optimized carbon reduction plan (Knapsack algorithm).
+ */
+export const getOptimizedPlan = async (effort: number) => {
+  try {
+    const response = await axios.get(
+      `${API_ENDPOINTS.ACTIVITIES}/optimize?effort=${effort}`,
+      getHeaders(),
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching plan:", error);
+    return { success: false, data: null };
+  }
+};

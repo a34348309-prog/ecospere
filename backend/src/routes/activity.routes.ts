@@ -5,6 +5,7 @@ import {
   getSummary,
   getTips,
   getOptions,
+  getOptimizedPlan,
 } from "../controllers/activity.controller";
 import { authenticateToken } from "../middleware/auth.middleware";
 import { validate } from "../middleware/validate";
@@ -31,5 +32,8 @@ router.get("/tips", authenticateToken, getTips);
 
 // Get activity options (categories + activities)
 router.get("/options", getOptions);
+
+// Get optimized carbon reduction plan (Knapsack algorithm)
+router.get("/optimize", getOptimizedPlan);
 
 export default router;
