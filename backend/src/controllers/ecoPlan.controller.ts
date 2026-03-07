@@ -52,13 +52,14 @@ export const generateEcoPlan = async (
     const profileData = req.body;
 
     const result = await generateAndSavePlan(userId, profileData);
+    const fullPlan = await getCurrentPlan(userId);
 
     res.json({
       success: true,
       message: result.isExisting
         ? "Returning your existing eco plan (regeneration available after 30 days)"
         : "Your personalized 12-month eco plan has been generated!",
-      data: result.plan,
+      data: fullPlan,
       isExisting: result.isExisting,
     });
   } catch (error) {

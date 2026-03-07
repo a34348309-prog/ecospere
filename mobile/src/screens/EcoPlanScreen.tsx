@@ -106,8 +106,8 @@ export const EcoPlanScreen = ({
   const fetchPlan = async () => {
     try {
       const result = await getCurrentEcoPlan();
-      if (result.success && result.data) {
-        setPlan(result.data);
+      if (result) {
+        setPlan(result);
         fadeIn();
       }
     } catch (err) {
@@ -120,8 +120,8 @@ export const EcoPlanScreen = ({
   const fetchImpact = async () => {
     try {
       const result = await getEcoImpactSummary();
-      if (result.success && result.data) {
-        setImpact(result.data);
+      if (result) {
+        setImpact(result);
       }
     } catch {
       // silently fail
@@ -134,21 +134,24 @@ export const EcoPlanScreen = ({
     setRefreshing(false);
   }, []);
 
-  const handleToggleAction = async (actionId: string, isCompleted: boolean) => {
+  const handleToggleAction = async (
+    planActionId: string,
+    ecoActionId: string,
+    isCompleted: boolean,
+  ) => {
     try {
       const prev = plan;
       // Optimistic update
       if (plan?.actions) {
         const updated = plan.actions.map((a) =>
-          a.id === actionId ? { ...a, isCompleted } : a,
+          a.id === planActionId ? { ...a, isCompleted } : a,
         );
         const completedCount = updated.filter((a) => a.isCompleted).length;
 
         setPlan({
           ...plan,
           actions: updated,
-          completedActions: completedCount,
-          completionPercentage: Math.round(
+          completionPercent: Math.round(
             (completedCount / updated.length) * 100,
           ),
         });
@@ -162,7 +165,13 @@ export const EcoPlanScreen = ({
         }
       }
 
-      const result = await updateActionProgress(actionId, isCompleted);
+      console.log("SENDING UPDATE", {
+        planActionId,
+        ecoActionId,
+        isCompleted,
+      });
+
+      const result = await updateActionProgress(ecoActionId, isCompleted);
       if (!result.success) {
         setPlan(prev);
         Alert.alert("Error", "Could not update progress.");
@@ -213,9 +222,10 @@ export const EcoPlanScreen = ({
     );
   }
 
-  const completionPct = plan.completionPercentage || 0;
+  const completionPct = plan.completionPercent || 0;
   const totalActions = plan.actions?.length || 0;
-  const completedActions = plan.completedActions || 0;
+  const completedActions =
+    plan.actions?.filter((a) => a.isCompleted).length || 0;
 
   return (
     <View style={styles.container}>
@@ -238,11 +248,11 @@ export const EcoPlanScreen = ({
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Eco Plan</Text>
           <SharePlan
-            planName="My EcoSphere Plan"
-            treeDebt={plan.treeDebt || 0}
-            totalCO2Reduced={plan.totalCarbonSaved || 0}
-            totalSavings={plan.totalMonthlySavings || 0}
-            completionPct={completionPct}
+            treesNeeded={plan.treesNeeded || 0}
+            treesReduced={plan.treesReducedByActions || 0}
+            co2Reduced={plan.totalCO2Reduced || 0}
+            yearlySavings={plan.totalYearlySavings || 0}
+            completionPercent={completionPct}
           />
         </View>
 
@@ -262,14 +272,14 @@ export const EcoPlanScreen = ({
             <View style={styles.heroRow}>
               <View style={styles.heroStat}>
                 <TreeDeciduous size={20} color="#2E7D32" />
-                <Text style={styles.heroNum}>{plan.treeDebt || 0}</Text>
+                <Text style={styles.heroNum}>{plan.treesRemaining || 0}</Text>
                 <Text style={styles.heroLabel}>Tree Debt</Text>
               </View>
               <View style={styles.heroDivider} />
               <View style={styles.heroStat}>
                 <Flame size={20} color="#E65100" />
                 <Text style={styles.heroNum}>
-                  {((plan.totalCarbonSaved || 0) / 1000).toFixed(1)}t
+                  {((plan.totalCO2Reduced || 0) / 1000).toFixed(1)}t
                 </Text>
                 <Text style={styles.heroLabel}>CO₂ Saved</Text>
               </View>
@@ -288,7 +298,11 @@ export const EcoPlanScreen = ({
         {/* Progress */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Progress</Text>
-          <ProgressChart completed={completedActions} total={totalActions} />
+          <ProgressChart
+            completedActions={completedActions}
+            totalActions={totalActions}
+            completionPercent={completionPct}
+          />
         </View>
 
         {/* Impact summary */}
@@ -299,14 +313,14 @@ export const EcoPlanScreen = ({
               <View style={styles.impactItem}>
                 <Leaf size={18} color="#2E7D32" />
                 <Text style={styles.impactValue}>
-                  {(impact.totalCarbonSaved / 1000).toFixed(1)} tonnes
+                  {(impact.co2SavedAnnually / 1000).toFixed(1)} tonnes
                 </Text>
                 <Text style={styles.impactLabel}>CO₂ Reduced / Year</Text>
               </View>
               <View style={styles.impactItem}>
                 <TreeDeciduous size={18} color="#1B5E20" />
                 <Text style={styles.impactValue}>
-                  {impact.treesEquivalent} trees
+                  {impact.treesOffsetByActions} trees
                 </Text>
                 <Text style={styles.impactLabel}>Equivalent Planted</Text>
               </View>
@@ -316,17 +330,13 @@ export const EcoPlanScreen = ({
 
         {/* Milestones */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Milestones</Text>
-          <View style={styles.badgeRow}>
-            {MILESTONES.map((m) => (
-              <ImpactBadge
-                key={m.threshold}
-                emoji={m.emoji}
-                label={m.label}
-                achieved={completedActions >= m.threshold}
-              />
-            ))}
-          </View>
+          <ImpactBadge
+            milestones={MILESTONES.map((m) => ({
+              name: m.label,
+              icon: m.emoji,
+              achieved: completedActions >= m.threshold,
+            }))}
+          />
         </View>
 
         {/* Phase tabs */}
@@ -379,9 +389,21 @@ export const EcoPlanScreen = ({
             getPhaseActions(activePhase).map((action) => (
               <ActionCard
                 key={action.id}
-                action={action}
-                onToggle={(completed) =>
-                  handleToggleAction(action.id, completed)
+                name={action.action.name}
+                icon={action.action.icon}
+                category={action.action.category}
+                description={action.action.description}
+                carbonSavedKg={action.action.carbonSavedKg}
+                monthlySavings={action.action.monthlySavings}
+                upfrontCost={action.action.upfrontCost}
+                tips={action.action.tips}
+                isCompleted={action.isCompleted}
+                onToggle={() =>
+                  handleToggleAction(
+                    action.id,
+                    action.actionId,
+                    !action.isCompleted,
+                  )
                 }
                 onPress={() => setSelectedAction(action)}
               />
@@ -432,30 +454,32 @@ export const EcoPlanScreen = ({
           <View style={styles.modalCard}>
             {selectedAction && (
               <>
-                <Text style={styles.modalTitle}>{selectedAction.name}</Text>
+                <Text style={styles.modalTitle}>
+                  {selectedAction.action.name}
+                </Text>
                 <View style={styles.modalBadge}>
                   <Text style={styles.modalBadgeText}>
-                    {selectedAction.category.replace("_", " ")}
+                    {selectedAction.action.category.replace("_", " ")}
                   </Text>
                 </View>
                 <View style={styles.modalStats}>
                   <View style={styles.modalStatItem}>
                     <Leaf size={16} color="#2E7D32" />
                     <Text style={styles.modalStatVal}>
-                      {selectedAction.carbonSavedKg} kg CO₂/yr
+                      {selectedAction.action.carbonSavedKg} kg CO₂/yr
                     </Text>
                   </View>
                   <View style={styles.modalStatItem}>
                     <DollarSign size={16} color="#1565C0" />
                     <Text style={styles.modalStatVal}>
-                      ₹{selectedAction.monthlySavings}/mo saved
+                      ₹{selectedAction.action.monthlySavings}/mo saved
                     </Text>
                   </View>
-                  {selectedAction.upfrontCost > 0 && (
+                  {selectedAction.action.upfrontCost > 0 && (
                     <View style={styles.modalStatItem}>
                       <Target size={16} color="#E65100" />
                       <Text style={styles.modalStatVal}>
-                        ₹{selectedAction.upfrontCost} upfront
+                        ₹{selectedAction.action.upfrontCost} upfront
                       </Text>
                     </View>
                   )}
@@ -468,7 +492,7 @@ export const EcoPlanScreen = ({
                         key={n}
                         style={[
                           styles.diffDot,
-                          n <= selectedAction.difficulty &&
+                          n <= selectedAction.action.difficulty &&
                             styles.diffDotFilled,
                         ]}
                       />
@@ -483,13 +507,13 @@ export const EcoPlanScreen = ({
                       style={[
                         styles.scoreFill,
                         {
-                          width: `${selectedAction.personalizedScore || 0}%`,
+                          width: `${selectedAction.score || 0}%`,
                         },
                       ]}
                     />
                   </View>
                   <Text style={styles.scoreText}>
-                    {selectedAction.personalizedScore || 0}/100
+                    {selectedAction.score || 0}/100
                   </Text>
                 </View>
 
@@ -508,8 +532,9 @@ export const EcoPlanScreen = ({
       {/* Celebration overlay */}
       {celebration && (
         <MilestoneCelebration
-          emoji={celebration.emoji}
-          label={celebration.label}
+          milestoneIcon={celebration.emoji}
+          milestoneName={celebration.label}
+          visible={!!celebration}
           onDismiss={() => setCelebration(null)}
         />
       )}

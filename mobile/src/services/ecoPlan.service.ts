@@ -137,9 +137,13 @@ export const updateActionProgress = async (
   isCompleted: boolean,
 ): Promise<{ success: boolean; data: any; message: string }> => {
   try {
+    const payload = {
+      actionId: String(actionId),
+      isCompleted: Boolean(isCompleted),
+    };
     const response = await axios.put(
       `${ECO_PLAN_URL}/update-progress`,
-      { actionId, isCompleted },
+      payload,
       getHeaders(),
     );
     return response.data;
