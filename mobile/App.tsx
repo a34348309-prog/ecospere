@@ -327,6 +327,24 @@ export default function App() {
     }
   }, [user?.id]);
 
+  // Route user to correct screen after auth state changes
+  useEffect(() => {
+    if (
+      user &&
+      (currentScreen === "login" ||
+        currentScreen === "signup" ||
+        currentScreen === "splash")
+    ) {
+      // Route new users (no calculator data) to onboarding, others to home
+      if (!user.lifetimeCarbon || user.lifetimeCarbon === 0) {
+        setCurrentScreen("onboarding");
+      } else {
+        setCurrentScreen("home");
+        setActiveTab("home");
+      }
+    }
+  }, [user]);
+
   if (!isReady) {
     return <Splash onFinish={() => {}} />;
   }
@@ -370,6 +388,16 @@ export default function App() {
     }
 
     switch (currentScreen) {
+      case "onboarding":
+        return (
+          <Calculator
+            isOnboarding
+            onComplete={() => {
+              setCurrentScreen("home");
+              setActiveTab("home");
+            }}
+          />
+        );
       case "home":
         return (
           <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />
@@ -439,18 +467,6 @@ export default function App() {
         );
     }
   };
-
-  // React.useEffect(() => {
-  //   if (
-  //     user &&
-  //     (currentScreen === "login" ||
-  //       currentScreen === "signup" ||
-  //       currentScreen === "splash")
-  //   ) {
-  //     setCurrentScreen("home");
-  //     setActiveTab("home");
-  //   }
-  // }, [user]);
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);

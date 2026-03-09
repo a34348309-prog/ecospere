@@ -31,6 +31,7 @@ import {
 } from "../services/auth.service";
 import { uploadBillImage, getCarbonHistory } from "../services/carbon.service";
 import * as ImagePicker from "expo-image-picker";
+import { useAuthStore } from "../store/useAuthStore";
 
 const VEHICLE_TYPES = [
   { name: "Car (Petrol)", emissionFactor: 0.192 }, // kg CO2 per km
@@ -51,7 +52,12 @@ const TREE_SPECIES = [
   { name: "Peepal", absorption: 30 }, // Very high
 ];
 
-export const Calculator = () => {
+interface CalculatorProps {
+  isOnboarding?: boolean;
+  onComplete?: () => void;
+}
+
+export const Calculator = ({ isOnboarding = false, onComplete }: CalculatorProps) => {
   // Inputs
   const [travelDistance, setTravelDistance] = useState("");
   const [electricity, setElectricity] = useState("");
@@ -69,8 +75,10 @@ export const Calculator = () => {
 
   // Initial Load
   useEffect(() => {
-    fetchUserStats();
-    fetchBillHistory();
+    if (!isOnboarding) {
+      fetchUserStats();
+      fetchBillHistory();
+    }
   }, []);
 
   const fetchBillHistory = async () => {
@@ -134,6 +142,12 @@ export const Calculator = () => {
 
         await updateCalculatorStats(lifeEmission, trees);
 
+        // Update local auth store so onboarding check won't re-trigger
+        useAuthStore.getState().updateUser({
+          lifetimeCarbon: lifeEmission,
+          treesToOffset: trees,
+        });
+
         // Update local state to reflect 'saved' status
         setSavedStats({ lifetimeCarbon: lifeEmission, treesToOffset: trees });
         setShowResults(true);
@@ -180,9 +194,13 @@ export const Calculator = () => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Personal Footprint</Text>
+        <Text style={styles.headerTitle}>
+          {isOnboarding ? "Your Carbon Footprint" : "Personal Footprint"}
+        </Text>
         <Text style={styles.headerSubtitle}>
-          Calculate your lifetime emissions & offset goals
+          {isOnboarding
+            ? "Let's start by understanding your environmental impact"
+            : "Calculate your lifetime emissions & offset goals"}
         </Text>
       </View>
 
@@ -380,10 +398,30 @@ export const Calculator = () => {
               lifespan of 40 productive years.
             </Text>
           </View>
+
+          {/* Onboarding: Continue to Home button */}
+          {isOnboarding && (
+            <TouchableOpacity
+              style={styles.continueBtn}
+              onPress={onComplete}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryDark]}
+                style={styles.continueBtnGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.continueBtnText}>Continue to Home →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </>
       )}
 
-      {/* Scan Utility Bill Section */}
+      {/* Scan Utility Bill Section — hidden during onboarding */}
+      {!isOnboarding && (
+      <>
       <Card style={styles.inputCard} elevation={0}>
         <View style={styles.cardHeader}>
           <View style={styles.iconBg}>
@@ -562,6 +600,8 @@ export const Calculator = () => {
           ))}
         </>
       )}
+      </>
+      )}
     </ScrollView>
   );
 };
@@ -727,5 +767,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#D1FAE5",
+  },
+  continueBtn: {
+    marginTop: 24,
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  continueBtnGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+  },
+  continueBtnText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
 });
