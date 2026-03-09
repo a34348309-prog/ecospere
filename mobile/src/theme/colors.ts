@@ -7,7 +7,7 @@ export const Colors = {
     secondary: '#111827',     // Dark text
 
     // Backgrounds
-    background: '#F0FDFA',    // Light Mint background (from image)
+    background: '#F7F8FA',    // Neutral near-white
     surface: '#FFFFFF',
 
     // Text
@@ -21,7 +21,7 @@ export const Colors = {
     info: '#3B82F6',
 
     border: '#E5E7EB',
-    inputBg: '#F0FDF8',       // Lightest green for inputs
+    inputBg: '#F5F6F8',       // Neutral light gray for inputs
 
     white: '#FFFFFF',
     black: '#000000',
