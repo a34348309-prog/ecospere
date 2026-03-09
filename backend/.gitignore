@@ -8,6 +8,8 @@ node_modules
 .env.test
 .env.production
 
+.bin
+
 # Production build
 dist
 build
