@@ -31,6 +31,7 @@ import {
 } from "../services/auth.service";
 import { uploadBillImage, getCarbonHistory } from "../services/carbon.service";
 import * as ImagePicker from "expo-image-picker";
+import { useAuthStore } from "../store/useAuthStore";
 
 const VEHICLE_TYPES = [
   { name: "Car (Petrol)", emissionFactor: 0.192 }, // kg CO2 per km
@@ -51,7 +52,12 @@ const TREE_SPECIES = [
   { name: "Peepal", absorption: 30 }, // Very high
 ];
 
-export const Calculator = () => {
+interface CalculatorProps {
+  isOnboarding?: boolean;
+  onComplete?: () => void;
+}
+
+export const Calculator = ({ isOnboarding = false, onComplete }: CalculatorProps) => {
   // Inputs
   const [travelDistance, setTravelDistance] = useState("");
   const [electricity, setElectricity] = useState("");
@@ -69,8 +75,10 @@ export const Calculator = () => {
 
   // Initial Load
   useEffect(() => {
-    fetchUserStats();
-    fetchBillHistory();
+    if (!isOnboarding) {
+      fetchUserStats();
+      fetchBillHistory();
+    }
   }, []);
 
   const fetchBillHistory = async () => {
@@ -134,6 +142,12 @@ export const Calculator = () => {
 
         await updateCalculatorStats(lifeEmission, trees);
 
+        // Update local auth store so onboarding check won't re-trigger
+        useAuthStore.getState().updateUser({
+          lifetimeCarbon: lifeEmission,
+          treesToOffset: trees,
+        });
+
         // Update local state to reflect 'saved' status
         setSavedStats({ lifetimeCarbon: lifeEmission, treesToOffset: trees });
         setShowResults(true);
@@ -180,9 +194,18 @@ export const Calculator = () => {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Personal Footprint</Text>
+        {isOnboarding && (
+          <View style={styles.onboardingBadge}>
+            <Text style={styles.onboardingBadgeText}>Step 1 of 1 · Carbon Footprint</Text>
+          </View>
+        )}
+        <Text style={styles.headerTitle}>
+          {isOnboarding ? "Your Carbon Footprint" : "Personal Footprint"}
+        </Text>
         <Text style={styles.headerSubtitle}>
-          Calculate your lifetime emissions & offset goals
+          {isOnboarding
+            ? "Let's start by understanding your environmental impact"
+            : "Calculate your lifetime emissions & offset goals"}
         </Text>
       </View>
 
@@ -380,10 +403,30 @@ export const Calculator = () => {
               lifespan of 40 productive years.
             </Text>
           </View>
+
+          {/* Onboarding: Continue to Home button */}
+          {isOnboarding && (
+            <TouchableOpacity
+              style={styles.continueBtn}
+              onPress={onComplete}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[Colors.primary, Colors.primaryDark]}
+                style={styles.continueBtnGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.continueBtnText}>Continue to Home →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </>
       )}
 
-      {/* Scan Utility Bill Section */}
+      {/* Scan Utility Bill Section — hidden during onboarding */}
+      {!isOnboarding && (
+      <>
       <Card style={styles.inputCard} elevation={0}>
         <View style={styles.cardHeader}>
           <View style={styles.iconBg}>
@@ -562,6 +605,8 @@ export const Calculator = () => {
           ))}
         </>
       )}
+      </>
+      )}
     </ScrollView>
   );
 };
@@ -569,39 +614,56 @@ export const Calculator = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 100 },
-  header: { marginTop: 10, marginBottom: 20 },
-  headerTitle: { fontSize: 28, fontWeight: "800", color: "#004D40" },
+  header: { marginTop: 10, marginBottom: 24 },
+  headerTitle: { fontSize: 26, fontWeight: "800", color: Colors.text },
   headerSubtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
-    marginTop: 4,
+    marginTop: 6,
     lineHeight: 20,
+  },
+
+  onboardingBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#F0FDF4",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginBottom: 14,
+  },
+  onboardingBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.primary,
   },
 
   inputCard: {
     backgroundColor: "#fff",
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 24,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: "#E0F2F1",
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   iconBg: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: "#E0F2F1",
+    borderRadius: 18,
+    backgroundColor: "#F0FDF4",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: "#004D40" },
+  cardTitle: { fontSize: 15, fontWeight: "700", color: Colors.text },
 
-  label: { fontSize: 13, fontWeight: "700", color: "#374151", marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: "600", color: "#374151", marginBottom: 8 },
   inputRow: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   input: {
-    backgroundColor: "#F8FAF5",
+    backgroundColor: Colors.inputBg,
     height: 50,
     fontSize: 14,
     marginBottom: 20,
@@ -611,7 +673,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#F8FAF5",
+    backgroundColor: Colors.inputBg,
     borderRadius: 12,
     height: 50,
     paddingHorizontal: 12,
@@ -619,16 +681,17 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   selectorText: { fontSize: 13, color: "#374151", flex: 1 },
-  calculateBtn: { borderRadius: 12, marginTop: 10 },
+  calculateBtn: { borderRadius: 14, marginTop: 10 },
 
   resultCard: {
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 24,
-    marginBottom: 30,
-    elevation: 2,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 4 },
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   resultHeader: {
     flexDirection: "row",
@@ -636,10 +699,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  resultTitle: { fontSize: 16, fontWeight: "700", color: "#00695C" },
+  resultTitle: { fontSize: 15, fontWeight: "700", color: "#00695C" },
   emissionValue: {
-    fontSize: 36,
-    fontWeight: "900",
+    fontSize: 34,
+    fontWeight: "800",
     color: "#004D40",
     marginBottom: 4,
   },
@@ -655,12 +718,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  offsetValue: { fontSize: 32, fontWeight: "800", color: Colors.primary },
+  offsetValue: { fontSize: 30, fontWeight: "800", color: Colors.primary },
   offsetLabel: { fontSize: 13, color: "#00695C" },
   treeIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
@@ -668,46 +731,49 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
-    color: "#004D40",
-    marginBottom: 16,
+    color: Colors.text,
+    marginBottom: 14,
   },
   speciesCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#F0F2F5",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   speciesIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#E8F5E9",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F0FDF4",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 14,
   },
   speciesInfo: { flex: 1 },
-  speciesName: { fontSize: 15, fontWeight: "700", color: "#1F2937" },
-  speciesDetail: { fontSize: 12, color: "#6B7280" },
+  speciesName: { fontSize: 14, fontWeight: "700", color: Colors.text },
+  speciesDetail: { fontSize: 12, color: Colors.textSecondary },
   plantCount: { alignItems: "flex-end" },
-  countValue: { fontSize: 18, fontWeight: "800", color: Colors.primary },
-  countLabel: { fontSize: 11, color: "#6B7280" },
+  countValue: { fontSize: 17, fontWeight: "800", color: Colors.primary },
+  countLabel: { fontSize: 11, color: Colors.textSecondary },
 
   infoBox: {
     flexDirection: "row",
-    backgroundColor: "#E3F2FD",
-    padding: 16,
+    backgroundColor: "#EFF6FF",
+    padding: 14,
     borderRadius: 12,
-    gap: 12,
+    gap: 10,
     marginTop: 10,
   },
-  infoText: { flex: 1, fontSize: 12, color: "#0277BD", lineHeight: 18 },
+  infoText: { flex: 1, fontSize: 12, color: "#1D4ED8", lineHeight: 18 },
   scanBtn: {
     flex: 1,
     flexDirection: "row",
@@ -722,10 +788,31 @@ const styles = StyleSheet.create({
   scanBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   billResultCard: {
     backgroundColor: "#F0FDF8",
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 20,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#D1FAE5",
+  },
+  continueBtn: {
+    marginTop: 24,
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 3,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  continueBtnGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+  },
+  continueBtnText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
 });

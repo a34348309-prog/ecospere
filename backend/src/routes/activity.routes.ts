@@ -6,6 +6,9 @@ import {
   getTips,
   getOptions,
   getOptimizedPlan,
+  getStreakInfo,
+  getChallenges,
+  getInsightsData,
 } from "../controllers/activity.controller";
 import { authenticateToken } from "../middleware/auth.middleware";
 import { validate } from "../middleware/validate";
@@ -35,5 +38,14 @@ router.get("/options", getOptions);
 
 // Get optimized carbon reduction plan (Knapsack algorithm)
 router.get("/optimize", getOptimizedPlan);
+
+// Get user's streak info
+router.get("/streak", authenticateToken, getStreakInfo);
+
+// Get user's weekly challenges
+router.get("/challenges", authenticateToken, getChallenges);
+
+// Get "You vs Average" insights
+router.get("/insights", authenticateToken, getInsightsData);
 
 export default router;
