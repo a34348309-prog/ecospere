@@ -201,7 +201,7 @@ const tabStyles = StyleSheet.create({
   centerButtonContainer: {
     position: "absolute",
     bottom: 90, // Positioned ABOVE the tab bar (height 80)
-    alignSelf: "center",
+    right: 20,
     alignItems: "center",
     zIndex: 10,
   },
@@ -232,8 +232,8 @@ const tabStyles = StyleSheet.create({
   menuContainer: {
     position: "absolute",
     bottom: 160, // Above the FAB
-    alignSelf: "center",
-    alignItems: "center",
+    right: 20,
+    alignItems: "flex-end",
     zIndex: 20,
   },
   menuItem: {
