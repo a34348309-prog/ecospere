@@ -24,6 +24,8 @@ import {
   getOptimizedPlan,
   getStreak,
 } from "../services/activity.service";
+import { getCalculatorStats } from "../services/auth.service";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ── Activity definitions ──
 const ACTIVITY_OPTIONS = [
@@ -169,6 +171,22 @@ export const EcoTracker = ({ onBack }: any) => {
       setSelectedActivity(null);
       setInputValue("");
       fetchData(); // Refresh summary
+
+      // Sync auth store with fresh server data so Home/Journey reflect new XP/level
+      try {
+        const freshStats = await getCalculatorStats();
+        if (freshStats) {
+          useAuthStore.getState().updateUser({
+            ecoScore: freshStats.ecoScore,
+            level: freshStats.level,
+            carbonDebt: freshStats.carbonDebt,
+            totalTreesPlanted: freshStats.totalTreesPlanted,
+            oxygenContribution: freshStats.oxygenContribution,
+          });
+        }
+      } catch (_) {
+        // Non-critical — store will sync on next screen mount
+      }
     } catch (error: any) {
       Alert.alert(
         "Error",
@@ -194,7 +212,7 @@ export const EcoTracker = ({ onBack }: any) => {
           borderBottomColor: "#F0F2F5",
         }}
       >
-        <TouchableOpacity onPress={onBack} style={{ marginRight: 12 }}>
+        <TouchableOpacity onPress={onBack} style={{ marginRight: 12, display: onBack ? 'flex' : 'none' }}>
           <ChevronLeft size={24} color={Colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>

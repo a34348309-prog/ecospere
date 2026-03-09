@@ -37,7 +37,7 @@ import {
 } from "./src/services/socket.service";
 import {
   Home as HomeIcon,
-  Calculator as CalcIcon,
+  Leaf,
   Trophy,
   User,
   BookOpen,
@@ -45,7 +45,7 @@ import {
 
 const TAB_ITEMS = [
   { key: "home", label: "Home", icon: HomeIcon },
-  { key: "calculator", label: "Calculate", icon: CalcIcon },
+  { key: "ecoTracker", label: "Tracker", icon: Leaf },
   { key: "learn", label: "Learn", icon: BookOpen },
   { key: "leaderboard", label: "Ranking", icon: Trophy },
   { key: "profile", label: "Profile", icon: User },
@@ -351,7 +351,7 @@ export default function App() {
 
   const isTabScreen = [
     "home",
-    "calculator",
+    "ecoTracker",
     "learn",
     "leaderboard",
     "profile",
@@ -402,6 +402,8 @@ export default function App() {
         return (
           <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />
         );
+      case "ecoTracker":
+        return <EcoTracker />;
       case "calculator":
         return <Calculator />;
       case "learn":
@@ -415,6 +417,7 @@ export default function App() {
               logout();
               setCurrentScreen("login");
             }}
+            onNavigate={(screen: string) => setCurrentScreen(screen)}
           />
         );
       case "map":
@@ -428,7 +431,7 @@ export default function App() {
         );
       case "createPlantation":
         return <CreatePlantationDrive onBack={goBack} />;
-      case "ecoTracker":
+      case "ecoTrackerDetail":
         return <EcoTracker onBack={goBack} />;
       case "journey":
         return <Journey onBack={goBack} />;

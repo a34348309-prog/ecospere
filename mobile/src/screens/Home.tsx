@@ -125,11 +125,11 @@ export const Home = ({ onNavigate }: any) => {
     }
   };
 
-  const treesPlanted = user?.totalTreesPlanted ?? stats?.totalTreesPlanted ?? 0;
-  const oxygenKg = user?.oxygenContribution ?? stats?.oxygenContribution ?? 0;
+  const treesPlanted = stats?.totalTreesPlanted ?? user?.totalTreesPlanted ?? 0;
+  const oxygenKg = stats?.oxygenContribution ?? user?.oxygenContribution ?? 0;
   const co2Reduced = (oxygenKg / 1000).toFixed(1);
-  const ecoScore = user?.ecoScore ?? stats?.ecoScore ?? 0;
-  const level = user?.level ?? 1;
+  const ecoScore = stats?.ecoScore ?? user?.ecoScore ?? 0;
+  const level = stats?.level ?? user?.level ?? 1;
 
   // XP approximation: ecoScore maps to level progress
   const xpCurrent = ecoScore % 500;

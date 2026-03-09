@@ -1,87 +1,82 @@
-# UI Improvement Plan: Journey & Leaderboard Pages
+# Plan: XP Update Bug, Navigation Change, Profile UI Improvement
 
 ## Context
-The Journey and Leaderboard (ranking) screens in the EcoSphere React Native app need UI improvements. The Leaderboard page has overlapping buttons/elements (podium items clip on smaller screens, header layout overflows, rank rows use negative margins causing overlap). The Journey page needs a visual refresh to match the polished Home screen design.
+Three issues to address:
+1. **XP not updating on Home page** — When a weekly challenge is completed via the EcoTracker, the backend awards XP (`ecoScore`) but the frontend auth store is never updated. Home reads `user?.ecoScore` from the stale store, so it shows old values until app restart.
+2. **Navigation swap** — Replace "Calculator" tab in bottom nav with "Daily Tracker" (EcoTracker). Move Calculator access into the Profile page as a tools section.
+3. **Profile UI improvement** — The current profile page has a flat teal design with basic cards and hardcoded badges. Redesign to match the polished Home/Journey aesthetic.
 
 ## Approach
-Redesign both screens focusing on proper spacing, responsive layouts, and a more polished visual hierarchy. Follow the existing design system (colors, card patterns, typography weights) from `Home.tsx` for consistency.
+
+### Issue 1: XP not updating
+**Root cause:** In `EcoTracker.handleLogActivity`, when the backend responds with `completedChallenges`, it has already incremented `ecoScore` in the DB. But the frontend never syncs — `useAuthStore.user.ecoScore` stays stale. Home uses `user?.ecoScore ?? stats?.ecoScore`, so the stale store value always wins.
+
+**Fix:** After logging an activity in EcoTracker, refetch fresh user stats via `getCalculatorStats()` and call `useAuthStore.getState().updateUser()` to sync the store. This ensures Home (and all other screens) immediately reflect the new XP/level.
+
+### Issue 2: Navigation swap
+Change the `TAB_ITEMS` array in `App.tsx` to replace calculator with ecoTracker. Update the `renderScreen` switch. Add a "Calculator" entry point in Profile as a touchable tools row. EcoTracker needs its `onBack` removed since it's now a tab screen (no back button needed).
+
+### Issue 3: Profile UI
+Redesign with the same design system as Home/Journey: neutral `Colors.background`, proper card shadows, gradient header card, meaningful stat display, tools section with Calculator link, and proper badges tied to real achievement data.
+
+---
 
 ## Files to Modify
-- `mobile/src/screens/Leaderboard.tsx` — Fix overlaps, redesign podium, improve layout
-- `mobile/src/screens/Journey.tsx` — Visual upgrade, better sections, improved cards
+- `mobile/src/screens/EcoTracker.tsx` — Sync auth store after activity log (fix XP bug); adapt for tab usage (remove back button when used as tab)
+- `mobile/App.tsx` — Swap calculator → ecoTracker in TAB_ITEMS and renderScreen; pass `onNavigate` to Profile
+- `mobile/src/screens/Profile.tsx` — Full UI redesign; add Calculator navigation link
+- `mobile/src/screens/Home.tsx` — Use fresh stats over stale store data for ecoScore/level
 
 ## Reuse
-- **Colors**: `mobile/src/theme/colors.ts` — All existing color tokens (`Colors.primary`, `Colors.background`, etc.)
-- **Card pattern**: From `Home.tsx` — `borderRadius: 18`, `padding: 20`, soft `elevation: 2` shadow pattern
-- **LinearGradient**: Already imported in Journey via `expo-linear-gradient`
-- **Components**: `react-native-paper` (`Text`, `Card`, `ProgressBar`, `Button`, `Avatar`)
-- **Icons**: `lucide-react-native` — already used throughout
+- `useAuthStore.updateUser()` — `mobile/src/store/useAuthStore.ts` — Update user fields in persisted store
+- `getCalculatorStats()` — `mobile/src/services/auth.service.ts` — Returns fresh `ecoScore`, `level`, `totalTreesPlanted`, etc. from DB
+- `Colors` — `mobile/src/theme/colors.ts` — All color tokens
+- `LinearGradient` — `expo-linear-gradient` — Already used across the app
+- Card pattern from Home.tsx — `borderRadius: 18`, `padding: 20`, soft shadow
 
 ---
 
 ## Steps
 
-### Leaderboard.tsx Fixes & Improvements
+### Issue 1: Fix XP not updating
 
-- [x] **Fix header layout**: Stacked vertically — title/subtitle on top, full-width tabs below. Added "Your Rank" badge.
+- [x] **EcoTracker.tsx — Sync store after activity log**
 
-- [x] **Fix podium overlap**: flex:1 with gap spacing, smaller avatars (64/52), numberOfLines={1}, reduced podium heights (110/85/65), maxWidth constraint.
+- [x] **Home.tsx — Prefer fresh stats over stale store**
 
-- [x] **Fix rank row overlap**: Removed negative marginHorizontal, using proper padding + border-based highlight with green border accent.
+### Issue 2: Replace Calculator with Daily Tracker in nav
 
-- [x] **Fix Add Friend bar**: Added flexShrink:0 to button, marginRight on left section, text wrapping with numberOfLines.
+- [x] **App.tsx — Update TAB_ITEMS**
 
-- [x] **Improve overall spacing**: paddingBottom reduced to 40, consistent margins, proper section gaps.
+- [x] **App.tsx — Update isTabScreen check**
 
-- [x] **Improve podium visual design**: Crown icon for #1, gradient background behind podium section, better bronze color (#CD7F32).
+- [x] **App.tsx — Update renderScreen**
 
-- [x] **Improve empty state**: Circular icon container, better typography spacing, larger padding.
+- [x] **EcoTracker.tsx — Support tab mode**
 
-- [x] **Polish rank list card**: Border only between items (isLast prop), rank number in styled container, green accent for "You" row with border, Star icons for 4th/5th.
+- [x] **App.tsx — Pass onNavigate to Profile**
 
-### Journey.tsx Improvements
+- [x] **Home.tsx — Quick Actions** — Already navigates to `'calculator'` which remains a valid screen.
 
-- [x] **Improve header**: Added level badge on the right. Better back button with shadow. Cleaner typography.
+### Issue 3: Profile UI redesign
 
-- [x] **Upgrade Impact Summary card**:
-  - 2x2 grid layout instead of 4-across row (more readable)
-  - Deep green gradient (#065F46 → #064E3B) with shadow/glow
-  - Each stat is a horizontal card with icon + text side by side
-  - Added "Badges Earned" stat replacing redundant "Level" stat
-  - Added "Your Impact" / "Global Footprint" label hierarchy
+- [x] **Profile.tsx — Redesigned header**: Dark green gradient card (#065F46 → #064E3B), horizontal layout with avatar + info side-by-side, level badge on avatar, rank & member-since tags.
 
-- [x] **Improve Goals section**:
-  - Removed useless "Manage" button
-  - Each goal has themed icon background colors
-  - Added "Almost!" badge when goal is >90% complete
-  - Color-coded progress bars per goal
+- [x] **Profile.tsx — Redesigned stats section**: 4-column stats row with icon backgrounds, dividers. Shows Trees, Eco Score, Rank, CO₂ Debt.
 
-- [x] **Upgrade Achievements section**:
-  - Wider cards (140px) with better padding
-  - Added locked state with Lock icon overlay for unachieved milestones
-  - Added 8 achievement tiers including "Rising Star (250pts)", "50 Trees", "Level 3"
-  - Shows all achievements (locked + unlocked) — no more "Getting Started" only
-  - Added count badge (e.g., "3/8") next to section title
+- [x] **Profile.tsx — Added Tools section**: Card with rows for Carbon Calculator and Eco Plan, each with icon, title, subtitle, and chevron for navigation.
 
-- [x] **Improve Impact History section**:
-  - Timeline design with vertical connector line and dots
-  - Active dot for most recent event
-  - "View All" link when >5 items
-  - Added empty state with icon, title, and description
+- [x] **Profile.tsx — Redesigned badges section**: 8 data-driven badges with real thresholds (trees/ecoScore/level), locked state with Lock icon overlay, count chip showing earned/total.
 
-- [x] **Upgrade Share button**: 
-  - Gradient-filled button (primary → primaryDark)
-  - Share2 icon with white text
-  - Shadow with green tint
+- [x] **Profile.tsx — Redesigned settings section**: `Colors.background` page background, icon backgrounds for each setting, cleaner dividers, consistent card styling.
 
-- [x] **Add motivational section**: "Next Milestone" card at top shows the next unachieved badge with its description and a sparkle icon.
+- [x] **Profile.tsx — Polished account info & logout**: Info rows with icon backgrounds and bottom borders, red logout button with FEF2F2 background and FECACA border.
 
 ---
 
 ## Verification
-- Run the app with `npx expo start` and test both screens on Android/iOS
-- Verify on small screen (320px width) that no elements overlap on Leaderboard
-- Check that podium displays correctly with 0, 1, 2, and 3+ users
-- Verify Journey page loads correctly with both populated and empty data states
-- Confirm all existing functionality (tab switching, add friend modal, share, navigation) still works
-- Check scroll behavior — no content cut off at bottom
+- Run `npx tsc --noEmit` for type checking
+- Test EcoTracker: log an activity that completes a challenge → navigate to Home → verify XP/level updates immediately
+- Test nav: verify "Tracker" tab opens EcoTracker, Calculator is accessible from Profile tools, back navigation works from Calculator
+- Test Profile: verify all sections render, Calculator link navigates correctly, edit profile modal still works, logout works
+- Test on small screen to verify no layout issues
