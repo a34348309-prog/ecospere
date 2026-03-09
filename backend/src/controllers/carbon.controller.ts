@@ -116,6 +116,7 @@ export const manualBillEntry = async (
     const userId = (req as any).user.userId;
     const { billType, totalUnits, billDate } = req.body;
 
+    // Use Zod schema validation in route, but keep failsafe here
     if (!totalUnits || totalUnits <= 0) {
       throw new AppError("Total units must be a positive number", 400);
     }

@@ -257,12 +257,19 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState("splash");
   const [activeTab, setActiveTab] = useState("home");
   const { user, logout } = useAuthStore();
+  const [isReady, setIsReady] = useState(false);
   const [alertData, setAlertData] = useState<{
     aqi: number;
     status: string;
     message: string;
   } | null>(null);
   const alertAnim = useRef(new Animated.Value(-100)).current;
+
+  // Wait for hydration
+  useEffect(() => {
+    useAuthStore.persist.rehydrate();
+    setIsReady(true);
+  }, []);
 
   // Socket.io: connect on login, disconnect on logout
   useEffect(() => {
@@ -320,6 +327,10 @@ export default function App() {
     }
   }, [user?.id]);
 
+  if (!isReady) {
+    return <Splash onFinish={() => {}} />;
+  }
+
   const isTabScreen = [
     "home",
     "calculator",
@@ -344,6 +355,18 @@ export default function App() {
         default:
           return <Splash onFinish={() => setCurrentScreen("login")} />;
       }
+    }
+
+    // Redirect to home if user exists and screen is auth-related
+    if (
+      currentScreen === "login" ||
+      currentScreen === "signup" ||
+      currentScreen === "splash"
+    ) {
+      // Don't render splash/login if we have a user
+      return (
+        <Home onNavigate={(screen: string) => setCurrentScreen(screen)} />
+      );
     }
 
     switch (currentScreen) {
@@ -417,17 +440,17 @@ export default function App() {
     }
   };
 
-  React.useEffect(() => {
-    if (
-      user &&
-      (currentScreen === "login" ||
-        currentScreen === "signup" ||
-        currentScreen === "splash")
-    ) {
-      setCurrentScreen("home");
-      setActiveTab("home");
-    }
-  }, [user]);
+  // React.useEffect(() => {
+  //   if (
+  //     user &&
+  //     (currentScreen === "login" ||
+  //       currentScreen === "signup" ||
+  //       currentScreen === "splash")
+  //   ) {
+  //     setCurrentScreen("home");
+  //     setActiveTab("home");
+  //   }
+  // }, [user]);
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);

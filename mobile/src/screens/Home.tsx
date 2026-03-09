@@ -23,6 +23,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../store/useAuthStore";
 import { getCalculatorStats } from "../services/auth.service";
 import { getAQIForecast } from "../services/aqi.service";
+import { getStreak, getChallenges, getInsightsData } from "../services/activity.service";
 import * as Location from "expo-location";
 
 export const Home = ({ onNavigate }: any) => {
@@ -30,11 +31,44 @@ export const Home = ({ onNavigate }: any) => {
   const [stats, setStats] = useState<any>(null);
   const [forecast, setForecast] = useState<any[]>([]);
   const [forecastLoading, setForecastLoading] = useState(true);
+  const [streak, setStreak] = useState<{ currentStreak: number; longestStreak: number; isActiveToday: boolean }>({ currentStreak: 0, longestStreak: 0, isActiveToday: false });
+  const [challenges, setChallenges] = useState<any[]>([]);
+  const [insights, setInsights] = useState<any>(null);
 
   useEffect(() => {
     fetchStats();
     fetchForecast();
+    fetchStreak();
+    fetchChallenges();
+    fetchInsights();
   }, []);
+
+  const fetchStreak = async () => {
+    try {
+      const data = await getStreak();
+      if (data) setStreak(data);
+    } catch (e) {
+      console.log("Streak fetch error:", e);
+    }
+  };
+
+  const fetchChallenges = async () => {
+    try {
+      const data = await getChallenges();
+      if (data) setChallenges(data);
+    } catch (e) {
+      console.log("Challenges fetch error:", e);
+    }
+  };
+
+  const fetchInsights = async () => {
+    try {
+      const data = await getInsightsData();
+      if (data) setInsights(data);
+    } catch (e) {
+      console.log("Insights fetch error:", e);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -112,6 +146,13 @@ export const Home = ({ onNavigate }: any) => {
           </Text>
           <Text style={styles.tagline}>Let's make today count 🌿</Text>
         </View>
+        {/* Streak Badge */}
+        {streak.currentStreak > 0 && (
+          <View style={styles.streakBadgeContainer}>
+            <Text style={styles.streakFireEmoji}>🔥</Text>
+            <Text style={styles.streakCount}>{streak.currentStreak}</Text>
+          </View>
+        )}
         <View style={styles.levelBadgeCircle}>
           <Text style={styles.levelBadgeText}>{level}</Text>
         </View>
@@ -169,7 +210,7 @@ export const Home = ({ onNavigate }: any) => {
         </View>
       </LinearGradient>
 
-      {/* Daily Eco-Challenge */}
+      {/* Weekly Eco-Challenges */}
       <LinearGradient
         colors={["#E1F5FE", "#E1F5FE"]}
         style={styles.challengeCard}
@@ -177,25 +218,42 @@ export const Home = ({ onNavigate }: any) => {
         <View style={styles.challengeHeader}>
           <View style={styles.challengeTitleRow}>
             <Zap size={20} color="#0288D1" />
-            <Text style={styles.challengeTitle}>Daily Eco-Challenge</Text>
+            <Text style={styles.challengeTitle}>Weekly Challenges</Text>
           </View>
           <View style={styles.streakBadge}>
-            <Text style={styles.streakText}>Eco Score: {ecoScore} 🔥</Text>
+            <Text style={styles.streakText}>
+              {streak.currentStreak > 0
+                ? `🔥 ${streak.currentStreak}-day streak`
+                : `Eco Score: ${ecoScore}`}
+            </Text>
           </View>
         </View>
 
-        <ChallengeItem
-          num="1"
-          title="Plant a virtual tree"
-          desc="Complete the tree calculator challenge"
-          xp="+50 XP"
-        />
-        <ChallengeItem
-          num="2"
-          title="Complete eco-quiz"
-          desc="Test your environmental knowledge"
-          xp="+30 XP"
-        />
+        {challenges.length > 0 ? (
+          challenges.map((ch: any, index: number) => {
+            const progress = ch.targetValue > 0 ? Math.min(ch.currentValue / ch.targetValue, 1) : 0;
+            return (
+              <ChallengeItem
+                key={ch.id || index}
+                num={ch.icon || String(index + 1)}
+                title={ch.title}
+                desc={ch.isCompleted ? "✅ Completed!" : `${ch.currentValue}/${ch.targetValue} — ${ch.description}`}
+                xp={`+${ch.xpReward} XP`}
+                progress={progress}
+                isCompleted={ch.isCompleted}
+              />
+            );
+          })
+        ) : (
+          <>
+            <ChallengeItem
+              num="1"
+              title="Loading challenges..."
+              desc="Your personalized challenges will appear here"
+              xp=""
+            />
+          </>
+        )}
       </LinearGradient>
 
       {/* AQI Forecast */}
@@ -248,6 +306,64 @@ export const Home = ({ onNavigate }: any) => {
           </View>
         )}
       </Card>
+
+      {/* You vs Average — Insights Card */}
+      {insights && insights.totalLogs > 0 && (
+        <Card style={styles.insightsCard} elevation={0}>
+          <View style={styles.insightsHeader}>
+            <TrendingUp size={18} color="#6A1B9A" />
+            <Text style={styles.insightsTitle}>You vs. Average</Text>
+            <View style={[styles.insightsPercentile, { backgroundColor: insights.isBetter ? '#E8F5E9' : '#FFF3E0' }]}>
+              <Text style={[styles.insightsPercentileText, { color: insights.isBetter ? '#2E7D32' : '#E65100' }]}>
+                Top {100 - insights.percentile}%
+              </Text>
+            </View>
+          </View>
+
+          {/* Overall comparison bar */}
+          <View style={styles.insightsOverall}>
+            <View style={styles.insightsBarContainer}>
+              <Text style={styles.insightsBarLabel}>You</Text>
+              <View style={styles.insightsBarBg}>
+                <View style={[styles.insightsBarFill, {
+                  width: `${Math.min(100, Math.round((insights.userWeeklyCarbon / insights.nationalAvgWeekly) * 100))}%`,
+                  backgroundColor: insights.isBetter ? '#4CAF50' : '#FF9800',
+                }]} />
+              </View>
+              <Text style={styles.insightsBarValue}>{insights.userWeeklyCarbon} kg</Text>
+            </View>
+            <View style={styles.insightsBarContainer}>
+              <Text style={styles.insightsBarLabel}>Avg</Text>
+              <View style={styles.insightsBarBg}>
+                <View style={[styles.insightsBarFill, {
+                  width: '100%',
+                  backgroundColor: '#B0BEC5',
+                }]} />
+              </View>
+              <Text style={styles.insightsBarValue}>{insights.nationalAvgWeekly} kg</Text>
+            </View>
+          </View>
+
+          <Text style={[styles.insightsVerdict, { color: insights.isBetter ? '#2E7D32' : '#E65100' }]}>
+            {insights.isBetter
+              ? `🎉 You're ${Math.abs(insights.percentBetter)}% below the national average!`
+              : `📊 ${Math.abs(insights.percentBetter)}% above average — keep improving!`}
+          </Text>
+
+          {/* All-Green Badge: below average in EVERY category */}
+          {insights.categories?.length > 0 && insights.categories.every((c: any) => c.isBetter) && (
+            <View style={{
+              marginTop: 12, backgroundColor: '#E8F5E9', borderRadius: 14,
+              paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center',
+              borderWidth: 1.5, borderColor: '#A5D6A7',
+            }}>
+              <Text style={{ fontSize: 13, fontWeight: '900', color: '#1B5E20' }}>
+                🌟 All-Green Champion — below average in every category!
+              </Text>
+            </View>
+          )}
+        </Card>
+      )}
 
       {/* Quick Actions Grid */}
       <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -310,18 +426,25 @@ export const Home = ({ onNavigate }: any) => {
   );
 };
 
-const ChallengeItem = ({ num, title, desc, xp }: any) => (
-  <View style={styles.challengeItem}>
-    <View style={styles.challengeNumCircle}>
-      <Text style={styles.challengeNum}>{num}</Text>
+const ChallengeItem = ({ num, title, desc, xp, progress, isCompleted }: any) => (
+  <View style={[styles.challengeItem, isCompleted && { opacity: 0.6 }]}>
+    <View style={[styles.challengeNumCircle, isCompleted && { backgroundColor: "#C8E6C9" }]}>
+      <Text style={styles.challengeNum}>{typeof num === 'string' && num.length > 2 ? num : num}</Text>
     </View>
     <View style={styles.challengeInfo}>
-      <Text style={styles.challengeItemTitle}>{title}</Text>
+      <Text style={[styles.challengeItemTitle, isCompleted && { textDecorationLine: "line-through" }]}>{title}</Text>
       <Text style={styles.challengeItemDesc}>{desc}</Text>
+      {progress !== undefined && progress > 0 && !isCompleted && (
+        <View style={{ height: 4, backgroundColor: "#E0E0E0", borderRadius: 2, marginTop: 6 }}>
+          <View style={{ height: 4, backgroundColor: "#0288D1", borderRadius: 2, width: `${Math.round(progress * 100)}%` }} />
+        </View>
+      )}
     </View>
-    <View style={styles.xpBadge}>
-      <Text style={styles.xpText}>{xp}</Text>
-    </View>
+    {xp ? (
+      <View style={[styles.xpBadge, isCompleted && { borderColor: "#4CAF50", backgroundColor: "#E8F5E9" }]}>
+        <Text style={[styles.xpText, isCompleted && { color: "#4CAF50" }]}>{isCompleted ? "✓" : xp}</Text>
+      </View>
+    ) : null}
   </View>
 );
 
@@ -367,6 +490,21 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   levelBadgeText: { color: "#fff", fontSize: 18, fontWeight: "800" },
+
+  streakBadgeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3E0",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#FFE0B2",
+    gap: 2,
+  },
+  streakFireEmoji: { fontSize: 16 },
+  streakCount: { fontSize: 16, fontWeight: "900", color: "#E65100" },
 
   levelCard: {
     borderRadius: 20,
@@ -568,4 +706,44 @@ const styles = StyleSheet.create({
   },
   forecastAqi: { fontSize: 16, fontWeight: "900", color: "#fff" },
   forecastStatus: { fontSize: 10, fontWeight: "700" },
+
+  // Insights Card
+  insightsCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  insightsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  insightsTitle: { fontSize: 16, fontWeight: "800", color: "#4A148C", flex: 1 },
+  insightsPercentile: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  insightsPercentileText: { fontSize: 11, fontWeight: "800" },
+  insightsOverall: { gap: 10, marginBottom: 14 },
+  insightsBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  insightsBarLabel: { fontSize: 12, fontWeight: "700", color: "#546E7A", width: 30 },
+  insightsBarBg: {
+    flex: 1,
+    height: 12,
+    backgroundColor: "#F0F2F5",
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  insightsBarFill: { height: 12, borderRadius: 6 },
+  insightsBarValue: { fontSize: 12, fontWeight: "800", color: "#263238", width: 55, textAlign: "right" },
+  insightsVerdict: { fontSize: 13, fontWeight: "700", textAlign: "center" },
 });
