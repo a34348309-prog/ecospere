@@ -94,3 +94,67 @@ export const getOptimizedPlan = async (effort: number) => {
     return { success: false, data: null };
   }
 };
+
+/**
+ * Get user's current streak info.
+ */
+export const getStreak = async () => {
+  try {
+    const response = await axios.get(
+      `${API_ENDPOINTS.ACTIVITIES}/streak`,
+      getHeaders(),
+    );
+    return response.data?.data ?? { currentStreak: 0, longestStreak: 0, isActiveToday: false };
+  } catch (error: any) {
+    console.error("Error fetching streak:", error);
+    return { currentStreak: 0, longestStreak: 0, isActiveToday: false };
+  }
+};
+
+/**
+ * Get weekly challenges (auto-generated).
+ */
+export const getChallenges = async () => {
+  try {
+    const response = await axios.get(
+      `${API_ENDPOINTS.ACTIVITIES}/challenges`,
+      getHeaders(),
+    );
+    return response.data?.data ?? [];
+  } catch (error: any) {
+    console.error("Error fetching challenges:", error);
+    return [];
+  }
+};
+
+/**
+ * Get "You vs Average" insights.
+ */
+export const getInsightsData = async () => {
+  try {
+    const response = await axios.get(
+      `${API_ENDPOINTS.ACTIVITIES}/insights`,
+      getHeaders(),
+    );
+    return response.data?.data ?? null;
+  } catch (error: any) {
+    console.error("Error fetching insights:", error);
+    return null;
+  }
+};
+
+/**
+ * Get carbon analytics (timeline, trends, category breakdown).
+ */
+export const getAnalytics = async (period: 'weekly' | 'monthly' | 'yearly' = 'monthly') => {
+  try {
+    const response = await axios.get(
+      `${API_ENDPOINTS.ACTIVITIES}/analytics?period=${period}`,
+      getHeaders(),
+    );
+    return response.data?.data ?? null;
+  } catch (error: any) {
+    console.error("Error fetching analytics:", error);
+    return null;
+  }
+};
