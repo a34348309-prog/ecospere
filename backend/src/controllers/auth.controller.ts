@@ -149,3 +149,83 @@ export const getMe = async (req: Request, res: Response, next: NextFunction) => 
         next(error);
     }
 };
+
+/**
+ * @swagger
+ * /api/v1/auth/change-password:
+ *   put:
+ *     summary: Change user password
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword: { type: string }
+ *               newPassword: { type: string, minLength: 6 }
+ *     responses:
+ *       200: { description: Password changed successfully }
+ *       400: { description: Current password is incorrect }
+ */
+export const changePassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).user.userId;
+        const { currentPassword, newPassword } = req.body;
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) throw new AppError('User not found', 404);
+
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            throw new AppError('Current password is incorrect', 400);
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword },
+        });
+
+        res.json({ success: true, message: 'Password changed successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @swagger
+ * /api/v1/auth/account:
+ *   delete:
+ *     summary: Delete user account and all associated data
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Account deleted successfully }
+ */
+export const deleteAccount = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const userId = (req as any).user.userId;
+
+        // Delete all user-related data in order (respecting FK constraints)
+        await prisma.$transaction([
+            prisma.userPlanAction.deleteMany({ where: { plan: { userId } } }),
+            prisma.userEcoPlan.deleteMany({ where: { userId } }),
+            prisma.weeklyChallenge.deleteMany({ where: { userId } }),
+            prisma.lifestyleProfile.deleteMany({ where: { userId } }),
+            prisma.activityLog.deleteMany({ where: { userId } }),
+            prisma.carbonBill.deleteMany({ where: { userId } }),
+            prisma.aQILog.deleteMany({ where: { userId } }),
+            prisma.impactLedger.deleteMany({ where: { userId } }),
+            prisma.friendship.deleteMany({ where: { OR: [{ userId }, { friendId: userId }] } }),
+            prisma.user.delete({ where: { id: userId } }),
+        ]);
+
+        res.json({ success: true, message: 'Account and all associated data deleted successfully' });
+    } catch (error) {
+        next(error);
+    }
+};

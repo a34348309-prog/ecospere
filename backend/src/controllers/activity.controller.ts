@@ -8,6 +8,7 @@ import {
   updateStreak,
   getUserStreak,
   getInsights,
+  getAnalytics,
 } from "../services/activity.service";
 import { optimizeCarbonDiet } from "../services/optimizer.service";
 import { getWeeklyChallenges, updateChallengeProgress } from "../services/challenge.service";
@@ -199,6 +200,29 @@ export const getInsightsData = async (
     const insights = await getInsights(userId);
 
     res.json({ success: true, data: insights });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/activities/analytics?period=monthly
+ * Get carbon analytics (timeline, trends, category breakdown).
+ */
+export const getAnalyticsData = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as any).user.userId;
+    const period = (req.query.period as string) || 'monthly';
+    const validPeriods = ['weekly', 'monthly', 'yearly'];
+    const safePeriod = validPeriods.includes(period) ? period as 'weekly' | 'monthly' | 'yearly' : 'monthly';
+
+    const analytics = await getAnalytics(userId, safePeriod);
+
+    res.json({ success: true, data: analytics });
   } catch (error) {
     next(error);
   }

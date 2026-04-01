@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, Avatar, Switch, Button, TextInput } from 'react-native-paper';
-import { Colors } from '../theme/colors';
+import { Colors, getColors } from '../theme/colors';
 import {
     Bell,
     MapPin,
@@ -28,8 +28,9 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { getMyRank } from '../services/leaderboard.service';
-import { getCalculatorStats, updateProfile } from '../services/auth.service';
+import { getCalculatorStats, updateProfile, changePassword, deleteAccount } from '../services/auth.service';
 
 // Achievement definitions tied to real data
 const PROFILE_BADGES = [
@@ -45,10 +46,20 @@ const PROFILE_BADGES = [
 
 export const Profile = ({ onLogout, onNavigate }: any) => {
     const { user, updateUser } = useAuthStore();
-    const [darkMode, setDarkMode] = useState(false);
+    const { isDarkMode, toggleDarkMode } = useThemeStore();
     const [notifications, setNotifications] = useState(true);
     const [locationServices, setLocationServices] = useState(true);
     const [privacy, setPrivacy] = useState(true);
+
+    const handlePrivacyToggle = async (value: boolean) => {
+        setPrivacy(value);
+        try {
+            await updateProfile({ isPublic: value } as any);
+        } catch (e) {
+            console.log('Privacy update error:', e);
+            setPrivacy(!value); // revert on failure
+        }
+    };
     const [myRank, setMyRank] = useState<number | null>(null);
     const [stats, setStats] = useState<any>(null);
 
@@ -57,6 +68,13 @@ export const Profile = ({ onLogout, onNavigate }: any) => {
     const [editName, setEditName] = useState(user?.name || '');
     const [editEmail, setEditEmail] = useState(user?.email || '');
     const [saving, setSaving] = useState(false);
+
+    // Password Change State
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [currentPwd, setCurrentPwd] = useState('');
+    const [newPwd, setNewPwd] = useState('');
+    const [confirmPwd, setConfirmPwd] = useState('');
+    const [changingPwd, setChangingPwd] = useState(false);
 
     useEffect(() => {
         fetchProfileData();
@@ -123,6 +141,59 @@ export const Profile = ({ onLogout, onNavigate }: any) => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleChangePassword = async () => {
+        if (!currentPwd || !newPwd) {
+            Alert.alert('Missing Fields', 'Please fill in all password fields.');
+            return;
+        }
+        if (newPwd.length < 6) {
+            Alert.alert('Weak Password', 'New password must be at least 6 characters.');
+            return;
+        }
+        if (newPwd !== confirmPwd) {
+            Alert.alert('Mismatch', 'New password and confirmation do not match.');
+            return;
+        }
+        setChangingPwd(true);
+        try {
+            await changePassword(currentPwd, newPwd);
+            Alert.alert('Success ✅', 'Password changed successfully!');
+            setShowPasswordModal(false);
+            setCurrentPwd('');
+            setNewPwd('');
+            setConfirmPwd('');
+        } catch (error: any) {
+            const msg = typeof error === 'string' ? error : error?.message || 'Failed to change password';
+            Alert.alert('Error', msg);
+        } finally {
+            setChangingPwd(false);
+        }
+    };
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            '⚠️ Delete Account',
+            'This action is permanent and cannot be undone. All your data including eco plans, activity logs, carbon bills, and friend connections will be permanently deleted.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete Forever',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteAccount();
+                            Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+                            onLogout();
+                        } catch (error: any) {
+                            const msg = typeof error === 'string' ? error : error?.message || 'Failed to delete account';
+                            Alert.alert('Error', msg);
+                        }
+                    },
+                },
+            ],
+        );
     };
 
     const treesPlanted = stats?.totalTreesPlanted ?? user?.totalTreesPlanted ?? 0;
@@ -287,8 +358,8 @@ export const Profile = ({ onLogout, onNavigate }: any) => {
                         label="Dark Mode"
                         sublabel="Toggle dark theme"
                         isSwitch
-                        value={darkMode}
-                        onToggle={setDarkMode}
+                        value={isDarkMode}
+                        onToggle={toggleDarkMode}
                     />
                     <View style={styles.settingDivider} />
                     <SettingItem
@@ -315,7 +386,7 @@ export const Profile = ({ onLogout, onNavigate }: any) => {
                         sublabel="Show on leaderboards"
                         isSwitch
                         value={privacy}
-                        onToggle={setPrivacy}
+                        onToggle={handlePrivacyToggle}
                     />
                 </View>
 
@@ -327,10 +398,33 @@ export const Profile = ({ onLogout, onNavigate }: any) => {
                     <InfoRow icon={Award} label="Eco Score" value={`${ecoScore} pts`} color={Colors.primary} isLast />
                 </View>
 
+                {/* Security */}
+                <Text style={styles.sectionTitle}>Security</Text>
+                <View style={styles.card}>
+                    <ToolRow
+                        icon={Lock}
+                        iconBg="#FFF7ED"
+                        iconColor="#EA580C"
+                        title="Change Password"
+                        subtitle="Update your account password"
+                        onPress={() => setShowPasswordModal(true)}
+                    />
+                </View>
+
                 {/* Logout */}
                 <TouchableOpacity style={styles.logoutBtn} onPress={onLogout} activeOpacity={0.7}>
                     <LogOut size={18} color="#DC2626" />
                     <Text style={styles.logoutText}>Log Out</Text>
+                </TouchableOpacity>
+
+                {/* Delete Account */}
+                <TouchableOpacity
+                    style={[styles.logoutBtn, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', marginTop: 12 }]}
+                    onPress={handleDeleteAccount}
+                    activeOpacity={0.7}
+                >
+                    <X size={18} color="#DC2626" />
+                    <Text style={styles.logoutText}>Delete Account</Text>
                 </TouchableOpacity>
 
                 <View style={{ height: 40 }} />
@@ -427,6 +521,93 @@ export const Profile = ({ onLogout, onNavigate }: any) => {
                         </Button>
 
                         <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.cancelBtn}>
+                            <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
+
+            {/* ─── Change Password Modal ─── */}
+            <Modal visible={showPasswordModal} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.modalContainer}
+                    >
+                        <View style={styles.modalHandle} />
+                        <View style={styles.modalHeader}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.modalTitle}>Change Password</Text>
+                                <Text style={styles.modalSubtitle}>Enter your current and new password</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowPasswordModal(false)} style={styles.closeBtn}>
+                                <X size={18} color={Colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.formLabel}>Current Password</Text>
+                        <View style={styles.inputWrapper}>
+                            <Lock size={16} color={Colors.textSecondary} />
+                            <TextInput
+                                value={currentPwd}
+                                onChangeText={setCurrentPwd}
+                                placeholder="Current password"
+                                placeholderTextColor={Colors.textLight}
+                                secureTextEntry
+                                mode="flat"
+                                style={styles.inputField}
+                                underlineColor="transparent"
+                                activeUnderlineColor="transparent"
+                            />
+                        </View>
+
+                        <Text style={styles.formLabel}>New Password</Text>
+                        <View style={styles.inputWrapper}>
+                            <Lock size={16} color={Colors.textSecondary} />
+                            <TextInput
+                                value={newPwd}
+                                onChangeText={setNewPwd}
+                                placeholder="New password (min 6 chars)"
+                                placeholderTextColor={Colors.textLight}
+                                secureTextEntry
+                                mode="flat"
+                                style={styles.inputField}
+                                underlineColor="transparent"
+                                activeUnderlineColor="transparent"
+                            />
+                        </View>
+
+                        <Text style={styles.formLabel}>Confirm New Password</Text>
+                        <View style={styles.inputWrapper}>
+                            <Lock size={16} color={Colors.textSecondary} />
+                            <TextInput
+                                value={confirmPwd}
+                                onChangeText={setConfirmPwd}
+                                placeholder="Confirm new password"
+                                placeholderTextColor={Colors.textLight}
+                                secureTextEntry
+                                mode="flat"
+                                style={styles.inputField}
+                                underlineColor="transparent"
+                                activeUnderlineColor="transparent"
+                            />
+                        </View>
+
+                        <Button
+                            mode="contained"
+                            onPress={handleChangePassword}
+                            loading={changingPwd}
+                            disabled={changingPwd}
+                            buttonColor={Colors.primary}
+                            style={[styles.saveBtn, { marginTop: 16 }]}
+                            contentStyle={{ height: 52 }}
+                            labelStyle={{ fontSize: 16, fontWeight: '800' }}
+                            icon={() => !changingPwd ? <Check size={18} color="#fff" /> : null}
+                        >
+                            Update Password
+                        </Button>
+
+                        <TouchableOpacity onPress={() => setShowPasswordModal(false)} style={styles.cancelBtn}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                     </KeyboardAvoidingView>

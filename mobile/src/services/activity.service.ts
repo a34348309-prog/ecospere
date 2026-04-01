@@ -142,3 +142,19 @@ export const getInsightsData = async () => {
     return null;
   }
 };
+
+/**
+ * Get carbon analytics (timeline, trends, category breakdown).
+ */
+export const getAnalytics = async (period: 'weekly' | 'monthly' | 'yearly' = 'monthly') => {
+  try {
+    const response = await axios.get(
+      `${API_ENDPOINTS.ACTIVITIES}/analytics?period=${period}`,
+      getHeaders(),
+    );
+    return response.data?.data ?? null;
+  } catch (error: any) {
+    console.error("Error fetching analytics:", error);
+    return null;
+  }
+};

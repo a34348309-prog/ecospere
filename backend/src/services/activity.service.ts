@@ -458,3 +458,103 @@ export const getUserStreak = async (userId: string) => {
     isActiveToday,
   };
 };
+
+/**
+ * Get monthly/yearly analytics — carbon trends over time.
+ */
+export const getAnalytics = async (userId: string, period: 'weekly' | 'monthly' | 'yearly' = 'monthly') => {
+  let since = new Date();
+  let groupBy: 'day' | 'week' | 'month';
+
+  if (period === 'weekly') {
+    since.setDate(since.getDate() - 28); // last 4 weeks
+    groupBy = 'day';
+  } else if (period === 'monthly') {
+    since.setMonth(since.getMonth() - 6); // last 6 months
+    groupBy = 'month';
+  } else {
+    since.setFullYear(since.getFullYear() - 2); // last 2 years
+    groupBy = 'month';
+  }
+
+  const logs = await prisma.activityLog.findMany({
+    where: { userId, date: { gte: since } },
+    orderBy: { date: 'asc' },
+  });
+
+  // Group data by time period
+  const grouped: Record<string, { emissions: number; offsets: number; count: number }> = {};
+  const categoryTotals: Record<string, number> = {};
+
+  for (const log of logs) {
+    let key: string;
+    const d = new Date(log.date);
+
+    if (groupBy === 'day') {
+      key = d.toISOString().split('T')[0]; // YYYY-MM-DD
+    } else if (groupBy === 'week') {
+      const weekStart = new Date(d);
+      weekStart.setDate(d.getDate() - d.getDay());
+      key = weekStart.toISOString().split('T')[0];
+    } else {
+      key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+    }
+
+    if (!grouped[key]) grouped[key] = { emissions: 0, offsets: 0, count: 0 };
+    grouped[key].count++;
+
+    if (log.carbonKg > 0) {
+      grouped[key].emissions += log.carbonKg;
+    } else {
+      grouped[key].offsets += Math.abs(log.carbonKg);
+    }
+
+    // Category breakdown
+    const cat = log.category;
+    categoryTotals[cat] = (categoryTotals[cat] || 0) + Math.max(log.carbonKg, 0);
+  }
+
+  // Convert to sorted array
+  const timeline = Object.entries(grouped)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, data]) => ({
+      period,
+      label: groupBy === 'day'
+        ? new Date(period).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : groupBy === 'month'
+          ? new Date(period + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+          : period,
+      emissions: Math.round(data.emissions * 100) / 100,
+      offsets: Math.round(data.offsets * 100) / 100,
+      net: Math.round((data.emissions - data.offsets) * 100) / 100,
+      count: data.count,
+    }));
+
+  // Calculate trend (comparing latest period to previous)
+  let trend = 0;
+  if (timeline.length >= 2) {
+    const latest = timeline[timeline.length - 1].emissions;
+    const previous = timeline[timeline.length - 2].emissions;
+    if (previous > 0) {
+      trend = Math.round(((latest - previous) / previous) * 100);
+    }
+  }
+
+  // Category breakdown as percentages
+  const totalEmissions = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
+  const categoryBreakdown = Object.entries(categoryTotals).map(([category, total]) => ({
+    category,
+    total: Math.round(total * 100) / 100,
+    percentage: totalEmissions > 0 ? Math.round((total / totalEmissions) * 100) : 0,
+  })).sort((a, b) => b.total - a.total);
+
+  return {
+    period,
+    timeline,
+    categoryBreakdown,
+    totalEmissions: Math.round(totalEmissions * 100) / 100,
+    totalLogs: logs.length,
+    trend, // negative = improving, positive = increasing
+    trendLabel: trend < 0 ? `↓ ${Math.abs(trend)}% reduction` : trend > 0 ? `↑ ${trend}% increase` : 'No change',
+  };
+};

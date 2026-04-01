@@ -25,6 +25,7 @@ import {
   EcoTracker,
   PreferenceForm,
   EcoPlanScreen,
+  Analytics,
 } from "./src/screens";
 import { useAuthStore } from "./src/store/useAuthStore";
 import { Colors } from "./src/theme/colors";
@@ -451,6 +452,8 @@ export default function App() {
             }}
           />
         );
+      case "analytics":
+        return <Analytics onBack={goBack} />;
       default:
         // Handle map:lat:lng format for focused map navigation
         if (currentScreen.startsWith("map:")) {
