@@ -22,7 +22,10 @@ import {
   getWeeklySummary,
   getEcoTips,
   getOptimizedPlan,
+  getStreak,
 } from "../services/activity.service";
+import { getCalculatorStats } from "../services/auth.service";
+import { useAuthStore } from "../store/useAuthStore";
 
 // ── Activity definitions ──
 const ACTIVITY_OPTIONS = [
@@ -110,15 +113,18 @@ export const EcoTracker = ({ onBack }: any) => {
   const [effortLevel, setEffortLevel] = useState<number | null>(null);
   const [optimizedPlan, setOptimizedPlan] = useState<any>(null);
   const [planLoading, setPlanLoading] = useState(false);
+  const [streakInfo, setStreakInfo] = useState<{ currentStreak: number; longestStreak: number; isActiveToday: boolean }>({ currentStreak: 0, longestStreak: 0, isActiveToday: false });
 
   const fetchData = useCallback(async () => {
     try {
-      const [summaryRes, tipsRes] = await Promise.all([
+      const [summaryRes, tipsRes, streakRes] = await Promise.all([
         getWeeklySummary(),
         getEcoTips(),
+        getStreak(),
       ]);
       if (summaryRes?.data) setSummary(summaryRes.data);
       if (tipsRes?.data?.tips) setTips(tipsRes.data.tips);
+      if (streakRes) setStreakInfo(streakRes);
     } catch (err) {
       console.warn("Error fetching eco data:", err);
     } finally {
@@ -146,13 +152,41 @@ export const EcoTracker = ({ onBack }: any) => {
         activity: selectedActivity.activity,
         value,
       });
-      Alert.alert(
-        result.isOffset ? "🌿 Offset Logged!" : "📊 Activity Logged!",
-        result.message,
-      );
+      const hasMilestone = result.streak?.milestone;
+      const hasChallenge = result.completedChallenges?.length > 0;
+
+      const title = hasChallenge
+        ? "🏆 Challenge Completed!"
+        : hasMilestone
+          ? "🔥 Streak Milestone!"
+          : result.isOffset
+            ? "🌿 Offset Logged!"
+            : "📊 Activity Logged!";
+
+      let body = result.message;
+      if (hasMilestone) body += `\n\n${result.streak.milestone.message}`;
+      if (hasChallenge) body += `\n\n🏆 ${result.completedChallenges.join(", ")} — XP awarded!`;
+
+      Alert.alert(title, body);
       setSelectedActivity(null);
       setInputValue("");
       fetchData(); // Refresh summary
+
+      // Sync auth store with fresh server data so Home/Journey reflect new XP/level
+      try {
+        const freshStats = await getCalculatorStats();
+        if (freshStats) {
+          useAuthStore.getState().updateUser({
+            ecoScore: freshStats.ecoScore,
+            level: freshStats.level,
+            carbonDebt: freshStats.carbonDebt,
+            totalTreesPlanted: freshStats.totalTreesPlanted,
+            oxygenContribution: freshStats.oxygenContribution,
+          });
+        }
+      } catch (_) {
+        // Non-critical — store will sync on next screen mount
+      }
     } catch (error: any) {
       Alert.alert(
         "Error",
@@ -178,7 +212,7 @@ export const EcoTracker = ({ onBack }: any) => {
           borderBottomColor: "#F0F2F5",
         }}
       >
-        <TouchableOpacity onPress={onBack} style={{ marginRight: 12 }}>
+        <TouchableOpacity onPress={onBack} style={{ marginRight: 12, display: onBack ? 'flex' : 'none' }}>
           <ChevronLeft size={24} color={Colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -191,6 +225,29 @@ export const EcoTracker = ({ onBack }: any) => {
         </View>
         <Leaf size={28} color={Colors.primary} />
       </View>
+
+      {/* Streak Banner */}
+      {streakInfo.currentStreak > 0 && (
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: '#FFF3E0', marginHorizontal: 20, marginTop: 8,
+          paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14,
+          borderWidth: 1, borderColor: '#FFE0B2', gap: 8,
+        }}>
+          <Text style={{ fontSize: 20 }}>🔥</Text>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: '#E65100' }}>
+            {streakInfo.currentStreak}-day streak
+          </Text>
+          {streakInfo.isActiveToday && (
+            <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '700' }}>
+              ✓ Logged today
+            </Text>
+          )}
+          <Text style={{ fontSize: 11, color: '#78909C', fontWeight: '600', marginLeft: 'auto' }}>
+            Best: {streakInfo.longestStreak}
+          </Text>
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 40 }}

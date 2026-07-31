@@ -23,6 +23,7 @@
     "socket.io": "^4.7.4",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

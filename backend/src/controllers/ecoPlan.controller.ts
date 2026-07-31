@@ -1,12 +1,12 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from "express";
 import {
-    generateAndSavePlan,
-    getCurrentPlan,
-    updateActionProgress,
-    getAllActions,
-    getImpactSummary,
-} from '../services/lifestyleOptimizer';
-import { AppError } from '../middleware/errorHandler';
+  generateAndSavePlan,
+  getCurrentPlan,
+  updateActionProgress,
+  getAllActions,
+  getImpactSummary,
+} from "../services/lifestyleOptimizer";
+import { AppError } from "../middleware/errorHandler";
 
 /**
  * @swagger
@@ -42,24 +42,29 @@ import { AppError } from '../middleware/errorHandler';
  *     responses:
  *       200: { description: Generated eco plan }
  */
-export const generateEcoPlan = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const userId = (req as any).user.userId;
-        const profileData = req.body;
+export const generateEcoPlan = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as any).user.userId;
+    const profileData = req.body;
 
-        const result = await generateAndSavePlan(userId, profileData);
+    const result = await generateAndSavePlan(userId, profileData);
+    const fullPlan = await getCurrentPlan(userId);
 
-        res.json({
-            success: true,
-            message: result.isExisting
-                ? 'Returning your existing eco plan (regeneration available after 30 days)'
-                : 'Your personalized 12-month eco plan has been generated!',
-            data: result.plan,
-            isExisting: result.isExisting,
-        });
-    } catch (error) {
-        next(error);
-    }
+    res.json({
+      success: true,
+      message: result.isExisting
+        ? "Returning your existing eco plan (regeneration available after 30 days)"
+        : "Your personalized 12-month eco plan has been generated!",
+      data: fullPlan,
+      isExisting: result.isExisting,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**
@@ -72,26 +77,31 @@ export const generateEcoPlan = async (req: Request, res: Response, next: NextFun
  *     responses:
  *       200: { description: Current eco plan with progress }
  */
-export const getEcoPlan = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const userId = (req as any).user.userId;
-        const plan = await getCurrentPlan(userId);
+export const getEcoPlan = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as any).user.userId;
+    const plan = await getCurrentPlan(userId);
 
-        if (!plan) {
-            return res.json({
-                success: true,
-                data: null,
-                message: 'No eco plan found. Complete the lifestyle form to generate your plan.',
-            });
-        }
-
-        res.json({
-            success: true,
-            data: plan,
-        });
-    } catch (error) {
-        next(error);
+    if (!plan) {
+      return res.json({
+        success: true,
+        data: null,
+        message:
+          "No eco plan found. Complete the lifestyle form to generate your plan.",
+      });
     }
+
+    res.json({
+      success: true,
+      data: plan,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**
@@ -114,24 +124,33 @@ export const getEcoPlan = async (req: Request, res: Response, next: NextFunction
  *     responses:
  *       200: { description: Updated progress }
  */
-export const updateProgress = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const userId = (req as any).user.userId;
-        const { actionId, isCompleted } = req.body;
+export const updateProgress = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { actionId, isCompleted } = req.body;
 
-        const result = await updateActionProgress(userId, actionId, isCompleted);
+    const result = await updateActionProgress(userId, actionId, isCompleted);
 
-        res.json({
-            success: true,
-            message: isCompleted ? 'Action marked as completed! 🎉' : 'Action marked as incomplete.',
-            data: result,
-        });
-    } catch (error: any) {
-        if (error.message?.includes('No eco plan found') || error.message?.includes('Action not found')) {
-            return next(new AppError(error.message, 404));
-        }
-        next(error);
+    res.json({
+      success: true,
+      message: isCompleted
+        ? "Action marked as completed! 🎉"
+        : "Action marked as incomplete.",
+      data: result,
+    });
+  } catch (error: any) {
+    if (
+      error.message?.includes("No eco plan found") ||
+      error.message?.includes("Action not found")
+    ) {
+      return next(new AppError(error.message, 404));
     }
+    next(error);
+  }
 };
 
 /**
@@ -143,17 +162,21 @@ export const updateProgress = async (req: Request, res: Response, next: NextFunc
  *     responses:
  *       200: { description: List of all eco actions }
  */
-export const listActions = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const actions = await getAllActions();
-        res.json({
-            success: true,
-            count: actions.length,
-            data: actions,
-        });
-    } catch (error) {
-        next(error);
-    }
+export const listActions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const actions = await getAllActions();
+    res.json({
+      success: true,
+      count: actions.length,
+      data: actions,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**
@@ -166,24 +189,28 @@ export const listActions = async (req: Request, res: Response, next: NextFunctio
  *     responses:
  *       200: { description: Impact summary with milestones }
  */
-export const impactSummary = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const userId = (req as any).user.userId;
-        const summary = await getImpactSummary(userId);
+export const impactSummary = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = (req as any).user.userId;
+    const summary = await getImpactSummary(userId);
 
-        if (!summary) {
-            return res.json({
-                success: true,
-                data: null,
-                message: 'No eco plan found. Generate a plan to see your impact.',
-            });
-        }
-
-        res.json({
-            success: true,
-            data: summary,
-        });
-    } catch (error) {
-        next(error);
+    if (!summary) {
+      return res.json({
+        success: true,
+        data: null,
+        message: "No eco plan found. Generate a plan to see your impact.",
+      });
     }
+
+    res.json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
