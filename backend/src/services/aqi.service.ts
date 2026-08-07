@@ -70,6 +70,37 @@ export const getAQIStatus = (aqi: number): string => {
 
 // ── Core Fetch Functions ────────────────────────────────────
 
+/**
+ * Compute US EPA AQI from PM2.5 concentration (μg/m³).
+ * Uses official EPA breakpoint table for accurate continuous values.
+ */
+const computeAQIFromPM25 = (pm25: number): number => {
+  const breakpoints = [
+    { cLow: 0,     cHigh: 12,    iLow: 0,   iHigh: 50  },
+    { cLow: 12.1,  cHigh: 35.4,  iLow: 51,  iHigh: 100 },
+    { cLow: 35.5,  cHigh: 55.4,  iLow: 101, iHigh: 150 },
+    { cLow: 55.5,  cHigh: 150.4, iLow: 151, iHigh: 200 },
+    { cLow: 150.5, cHigh: 250.4, iLow: 201, iHigh: 300 },
+    { cLow: 250.5, cHigh: 350.4, iLow: 301, iHigh: 400 },
+    { cLow: 350.5, cHigh: 500.4, iLow: 401, iHigh: 500 },
+  ];
+
+  // Truncate to 1 decimal (EPA standard)
+  const c = Math.floor(pm25 * 10) / 10;
+  if (c < 0) return 0;
+  if (c > 500.4) return 500;
+
+  for (const bp of breakpoints) {
+    if (c >= bp.cLow && c <= bp.cHigh) {
+      return Math.round(
+        ((bp.iHigh - bp.iLow) / (bp.cHigh - bp.cLow)) * (c - bp.cLow) + bp.iLow,
+      );
+    }
+  }
+
+  return 100; // safe fallback
+};
+
 // ── PPB → μg/m³ conversion factors (at 25°C, 1 atm) ────
 const PPB_TO_UGM3: Record<string, number> = {
   co: 1.145,   // CO molecular weight 28.01
@@ -349,7 +380,9 @@ export const fetchAQIForecast = async (
   const list = response.data?.list ?? [];
   return list.map((entry: any) => {
     const rawAqi = entry.main.aqi;
-    const epaAqi = mapOpenWeatherAQI(rawAqi);
+    // Use PM2.5 concentration for accurate EPA AQI instead of crude 1-5 mapping
+    const pm25 = entry.components?.pm2_5 ?? 0;
+    const epaAqi = pm25 > 0 ? computeAQIFromPM25(pm25) : mapOpenWeatherAQI(rawAqi);
     return {
       dt: entry.dt,
       aqiValue: epaAqi,
@@ -383,7 +416,8 @@ export const fetchAQIHistoryFromAPI = async (
   const list = response.data?.list ?? [];
   return list.map((entry: any) => {
     const rawAqi = entry.main.aqi;
-    const epaAqi = mapOpenWeatherAQI(rawAqi);
+    const pm25 = entry.components?.pm2_5 ?? 0;
+    const epaAqi = pm25 > 0 ? computeAQIFromPM25(pm25) : mapOpenWeatherAQI(rawAqi);
     return {
       dt: entry.dt,
       aqiValue: epaAqi,

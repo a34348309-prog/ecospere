@@ -9,6 +9,7 @@ import {
   getStreakInfo,
   getChallenges,
   getInsightsData,
+  getAnalyticsData,
 } from "../controllers/activity.controller";
 import { authenticateToken } from "../middleware/auth.middleware";
 import { validate } from "../middleware/validate";
@@ -47,5 +48,8 @@ router.get("/challenges", authenticateToken, getChallenges);
 
 // Get "You vs Average" insights
 router.get("/insights", authenticateToken, getInsightsData);
+
+// Get carbon analytics (timeline, trends, category breakdown)
+router.get("/analytics", authenticateToken, getAnalyticsData);
 
 export default router;

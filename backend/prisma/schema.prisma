@@ -29,6 +29,7 @@ model User {
   currentStreak      Int      @default(0)
   longestStreak      Int      @default(0)
   lastActivityDate   DateTime?
+  isPublic           Boolean  @default(true)
   homeLocation       Unsupported("geometry(Point, 4326)")?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

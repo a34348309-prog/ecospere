@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Colors } from '../theme/colors';
+import { Colors, getColors } from '../theme/colors';
 import {
   TreeDeciduous,
   Leaf,
@@ -18,9 +18,11 @@ import {
   TrendingUp,
   Wind,
   Target,
+  BarChart3,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { getCalculatorStats } from '../services/auth.service';
 import { getAQIForecast } from '../services/aqi.service';
 import {
@@ -32,6 +34,8 @@ import * as Location from 'expo-location';
 
 export const Home = ({ onNavigate }: any) => {
   const { user } = useAuthStore();
+  const { isDarkMode } = useThemeStore();
+  const theme = getColors(isDarkMode);
   const [stats, setStats] = useState<any>(null);
   const [forecast, setForecast] = useState<any[]>([]);
   const [forecastLoading, setForecastLoading] = useState(true);
@@ -142,17 +146,17 @@ export const Home = ({ onNavigate }: any) => {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
       {/* Header Area */}
       <View style={styles.header}>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.greeting}>
+          <Text style={[styles.greeting, { color: theme.text }]}>
             Welcome back, {user?.name?.split(' ')[0] || 'Eco Warrior'}!
           </Text>
-          <Text style={styles.tagline}>Let's make today count 🌿</Text>
+          <Text style={[styles.tagline, { color: theme.textSecondary }]}>Let's make today count 🌿</Text>
         </View>
         {/* Streak Badge */}
         {streak.currentStreak > 0 && (
@@ -167,13 +171,13 @@ export const Home = ({ onNavigate }: any) => {
       </View>
 
       {/* Level Progress Card */}
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
         <View style={styles.levelHeader}>
           <View style={styles.levelTitleRow}>
             <View style={styles.accentIconBg}>
               <Trophy size={16} color={Colors.primary} />
             </View>
-            <Text style={styles.cardLabel}>Level {level}</Text>
+            <Text style={[styles.cardLabel, { color: theme.text }]}>Level {level}</Text>
           </View>
           <Text style={styles.levelXp}>
             {xpCurrent} / {xpMax} XP
@@ -193,7 +197,7 @@ export const Home = ({ onNavigate }: any) => {
       </View>
 
       {/* Impact Stats Row — compact horizontal */}
-      <View style={styles.statsRow}>
+      <View style={[styles.statsRow, { backgroundColor: theme.card }]}>
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{oxygenPercent}%</Text>
           <Text style={styles.statLabel}>O₂ Impact</Text>
@@ -211,7 +215,7 @@ export const Home = ({ onNavigate }: any) => {
       </View>
 
       {/* Weekly Eco-Challenges */}
-      <View style={[styles.card, styles.challengeCard]}>
+      <View style={[styles.card, styles.challengeCard, { backgroundColor: theme.card }]}>
         <View style={styles.challengeHeader}>
           <View style={styles.challengeTitleRow}>
             <Zap size={18} color='#0288D1' />
@@ -259,7 +263,7 @@ export const Home = ({ onNavigate }: any) => {
       </View>
 
       {/* AQI Forecast */}
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
         <View style={styles.forecastHeader}>
           <Wind size={18} color='#0288D1' />
           <Text style={styles.cardLabel}>4-Day AQI Forecast</Text>
@@ -311,7 +315,7 @@ export const Home = ({ onNavigate }: any) => {
 
       {/* You vs Average — Insights Card */}
       {insights && insights.totalLogs > 0 && (
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: theme.card }]}>
           <View style={styles.insightsHeader}>
             <TrendingUp size={18} color='#6A1B9A' />
             <Text style={[styles.cardLabel, { flex: 1 }]}>You vs. Average</Text>
@@ -405,7 +409,7 @@ export const Home = ({ onNavigate }: any) => {
       )}
 
       {/* Quick Actions Grid */}
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Actions</Text>
       <View style={styles.quickGrid}>
         <QuickAction
           icon={<TreeDeciduous size={22} color={Colors.primary} />}
@@ -437,11 +441,16 @@ export const Home = ({ onNavigate }: any) => {
           label='Eco Plan'
           onPress={() => onNavigate('ecoPlan')}
         />
+        <QuickAction
+          icon={<BarChart3 size={22} color='#6A1B9A' />}
+          label='Analytics'
+          onPress={() => onNavigate('analytics')}
+        />
       </View>
 
       {/* Eco Stats Summary */}
-      <Text style={styles.sectionTitle}>Your Eco Stats</Text>
-      <View style={styles.card}>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>Your Eco Stats</Text>
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
         <ActivityItem
           icon={<TreeDeciduous size={18} color={Colors.primary} />}
           iconBg='#F0FDF4'
@@ -527,8 +536,8 @@ const ChallengeItem = ({
   </View>
 );
 
-const QuickAction = ({ icon, label, onPress }: any) => (
-  <TouchableOpacity style={styles.quickActionCard} onPress={onPress}>
+const QuickAction = ({ icon, label, onPress, cardBg }: any) => (
+  <TouchableOpacity style={[styles.quickActionCard, cardBg && { backgroundColor: cardBg }]} onPress={onPress}>
     <View style={styles.quickActionIcon}>{icon}</View>
     <Text style={styles.quickActionLabel}>{label}</Text>
   </TouchableOpacity>

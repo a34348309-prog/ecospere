@@ -74,11 +74,33 @@ export const updateCalculatorStats = async (lifetimeCarbon: number, treesToOffse
     }
 };
 
-export const updateProfile = async (data: { name?: string; email?: string }) => {
+export const updateProfile = async (data: { name?: string; email?: string; isPublic?: boolean }) => {
     try {
         const response = await axios.put(`${API_ENDPOINTS.USERS}/profile`, data, getHeaders());
         return response.data;
     } catch (error: any) {
         throw error.response?.data?.error?.message || 'Failed to update profile';
+    }
+};
+
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+        const response = await axios.put(
+            `${API_ENDPOINTS.AUTH}/change-password`,
+            { currentPassword, newPassword },
+            getHeaders(),
+        );
+        return response.data;
+    } catch (error: any) {
+        throw error.response?.data?.error?.message || 'Failed to change password';
+    }
+};
+
+export const deleteAccount = async () => {
+    try {
+        const response = await axios.delete(`${API_ENDPOINTS.AUTH}/account`, getHeaders());
+        return response.data;
+    } catch (error: any) {
+        throw error.response?.data?.error?.message || 'Failed to delete account';
     }
 };

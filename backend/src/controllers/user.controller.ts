@@ -71,7 +71,7 @@ export const updateCalculatorStats = async (req: Request, res: Response, next: N
 export const updateProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).user.userId;
-        const { name, email } = req.body;
+        const { name, email, isPublic } = req.body;
 
         // Build update data dynamically (only update provided fields)
         const updateData: any = {};
@@ -88,9 +88,12 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
             }
             updateData.email = normalizedEmail;
         }
+        if (isPublic !== undefined) {
+            updateData.isPublic = isPublic;
+        }
 
         if (Object.keys(updateData).length === 0) {
-            throw new AppError('No valid fields to update. Provide name (min 2 chars) or email.', 400);
+            throw new AppError('No valid fields to update. Provide name (min 2 chars), email, or isPublic.', 400);
         }
 
         const user = await prisma.user.update({

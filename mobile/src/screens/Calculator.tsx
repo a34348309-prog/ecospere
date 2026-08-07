@@ -72,6 +72,7 @@ export const Calculator = ({ isOnboarding = false, onComplete }: CalculatorProps
   const [billUploading, setBillUploading] = useState(false);
   const [billResult, setBillResult] = useState<any>(null);
   const [billHistory, setBillHistory] = useState<any[]>([]);
+  const [selectedBillType, setSelectedBillType] = useState<'electricity' | 'gas' | 'water'>('electricity');
 
   // Initial Load
   useEffect(() => {
@@ -446,6 +447,33 @@ export const Calculator = ({ isOnboarding = false, onComplete }: CalculatorProps
           the consumption and calculate your carbon footprint automatically.
         </Text>
 
+        {/* Bill Type Selector */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          {(['electricity', 'gas', 'water'] as const).map((type) => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => setSelectedBillType(type)}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: selectedBillType === type ? Colors.primary : '#F0F4F8',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: selectedBillType === type ? Colors.primary : '#E5E7EB',
+              }}
+            >
+              <Text style={{
+                fontSize: 12,
+                fontWeight: '700',
+                color: selectedBillType === type ? '#fff' : Colors.textSecondary,
+              }}>
+                {type === 'electricity' ? '⚡ Electricity' : type === 'gas' ? '🔥 Gas' : '💧 Water'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {billUploading ? (
           <View style={{ alignItems: "center", paddingVertical: 30 }}>
             <ActivityIndicator size="large" color={Colors.primary} />
@@ -531,7 +559,7 @@ export const Calculator = ({ isOnboarding = false, onComplete }: CalculatorProps
                   setBillUploading(true);
                   const res = await uploadBillImage(
                     result.assets[0].uri,
-                    "electricity",
+                    selectedBillType,
                   );
                   setBillResult(res);
                   setBillUploading(false);
@@ -561,7 +589,7 @@ export const Calculator = ({ isOnboarding = false, onComplete }: CalculatorProps
                   setBillUploading(true);
                   const res = await uploadBillImage(
                     result.assets[0].uri,
-                    "electricity",
+                    selectedBillType,
                   );
                   setBillResult(res);
                   setBillUploading(false);

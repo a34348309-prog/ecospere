@@ -13,6 +13,7 @@ export const getLeaderboard = async (req: Request, res: Response, next: NextFunc
         const limit = parseInt(req.query.limit as string) || 20;
 
         const leaderboard = await prisma.user.findMany({
+            where: { isPublic: true },
             select: {
                 id: true,
                 name: true,

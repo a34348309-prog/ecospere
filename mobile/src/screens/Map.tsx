@@ -7,6 +7,7 @@ import {
   Dimensions,
   ActivityIndicator,
   ScrollView,
+  TextInput,
 } from "react-native";
 import MapView, { Marker, Polygon } from "react-native-maps";
 import { Text, Card } from "react-native-paper";
@@ -30,7 +31,7 @@ import {
 import axios from "axios";
 import { API_ENDPOINTS } from "../services/api.config";
 import { useAuthStore } from "../store/useAuthStore";
-import { getPlantationEvents } from "../services/event.service";
+import { getPlantationEvents, getEvents } from "../services/event.service";
 
 const INITIAL_REGION = {
   latitude: 42.3601,
@@ -66,6 +67,10 @@ export const Map = ({ onBack, focusLat, focusLng }: any) => {
   const mapRef = useRef<MapView>(null);
   const [nearbyNGOs, setNearbyNGOs] = useState<any[]>([]);
   const [plantationDrives, setPlantationDrives] = useState<any[]>([]);
+  const [communityEvents, setCommunityEvents] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const fetchNearbyNGOs = async (lat: number, lng: number) => {
     try {
@@ -82,16 +87,68 @@ export const Map = ({ onBack, focusLat, focusLng }: any) => {
     }
   };
 
-  // Fetch plantation events for markers
+  // Search through NGOs, events, and plantation drives
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+    const q = query.toLowerCase();
+    const results: any[] = [];
+
+    nearbyNGOs.forEach((ngo) => {
+      if (ngo.name?.toLowerCase().includes(q) || ngo.description?.toLowerCase().includes(q)) {
+        results.push({ type: 'ngo', name: ngo.name, lat: ngo.lat, lng: ngo.lng, icon: '🏢' });
+      }
+    });
+
+    communityEvents.forEach((evt: any) => {
+      if (evt.title?.toLowerCase().includes(q) || evt.locationname?.toLowerCase().includes(q)) {
+        results.push({ type: 'event', name: evt.title, lat: evt.lat, lng: evt.lng, icon: '📅' });
+      }
+    });
+
+    plantationDrives.forEach((drive) => {
+      if (drive.title?.toLowerCase().includes(q) || drive.locationName?.toLowerCase().includes(q)) {
+        results.push({ type: 'plantation', name: drive.title, lat: drive.lat, lng: drive.lng, icon: '🌳' });
+      }
+    });
+
+    setSearchResults(results);
+    setShowSearchResults(results.length > 0);
+  };
+
+  const navigateToResult = (result: any) => {
+    mapRef.current?.animateToRegion(
+      {
+        latitude: result.lat,
+        longitude: result.lng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      800,
+    );
+    setShowSearchResults(false);
+  };
+
+  // Fetch plantation events and community events for markers
   useEffect(() => {
     (async () => {
       try {
-        const result = await getPlantationEvents();
-        if (result?.data) {
-          setPlantationDrives(result.data);
+        const [plantResult, eventResult] = await Promise.all([
+          getPlantationEvents(),
+          getEvents(),
+        ]);
+        if (plantResult?.data) {
+          setPlantationDrives(plantResult.data);
+        }
+        if (eventResult?.data) {
+          setCommunityEvents(eventResult.data);
         }
       } catch (err) {
-        console.warn("Failed to fetch plantation events:", err);
+        console.warn("Failed to fetch events:", err);
       }
     })();
   }, []);
@@ -211,9 +268,19 @@ export const Map = ({ onBack, focusLat, focusLng }: any) => {
         </TouchableOpacity>
         <View style={styles.searchBar}>
           <Search size={18} color={Colors.textSecondary} />
-          <Text style={styles.searchPlaceholder}>
-            Search for NGOs or Events...
-          </Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search NGOs, Events, Drives..."
+            placeholderTextColor={Colors.textSecondary}
+            value={searchQuery}
+            onChangeText={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(""); setShowSearchResults(false); }}>
+              <Text style={{ fontSize: 16, color: Colors.textSecondary }}>✕</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <TouchableOpacity
           style={[
@@ -229,6 +296,29 @@ export const Map = ({ onBack, focusLat, focusLng }: any) => {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Search Results Dropdown */}
+      {showSearchResults && (
+        <View style={styles.searchResultsContainer}>
+          <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+            {searchResults.map((result, index) => (
+              <TouchableOpacity
+                key={`${result.type}-${index}`}
+                style={styles.searchResultItem}
+                onPress={() => navigateToResult(result)}
+              >
+                <Text style={{ fontSize: 16, marginRight: 10 }}>{result.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.searchResultName} numberOfLines={1}>{result.name}</Text>
+                  <Text style={styles.searchResultType}>
+                    {result.type === 'ngo' ? 'NGO' : result.type === 'event' ? 'Event' : 'Plantation Drive'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Map View */}
       <View style={styles.mapArea}>
@@ -330,7 +420,22 @@ export const Map = ({ onBack, focusLat, focusLng }: any) => {
         </MapView>
 
         {/* Floating Navigation Button */}
-        <TouchableOpacity style={styles.locateBtn}>
+        <TouchableOpacity
+          style={styles.locateBtn}
+          onPress={() => {
+            if (userLocation) {
+              mapRef.current?.animateToRegion(
+                {
+                  latitude: userLocation.lat,
+                  longitude: userLocation.lng,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                },
+                800,
+              );
+            }
+          }}
+        >
           <Navigation size={22} color="#fff" />
         </TouchableOpacity>
 
@@ -410,19 +515,19 @@ export const Map = ({ onBack, focusLat, focusLng }: any) => {
           <MiniStat
             icon={<TreeDeciduous size={16} color={Colors.primary} />}
             label="Sites"
-            val="12"
+            val={String(plantationDrives.length)}
           />
           <View style={styles.divider} />
           <MiniStat
             icon={<MapPin size={16} color="#0277BD" />}
             label="Events"
-            val="5"
+            val={String(communityEvents.length)}
           />
           <View style={styles.divider} />
           <MiniStat
             icon={<Wind size={16} color="#EF6C00" />}
-            label="Hotspots"
-            val="2"
+            label="NGOs"
+            val={String(nearbyNGOs.length)}
           />
         </View>
       </Card>
@@ -496,10 +601,46 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: Colors.text,
     fontWeight: "500",
+    paddingVertical: 0,
+    marginLeft: 8,
+  },
+  searchResultsContainer: {
+    position: "absolute",
+    top: 78,
+    left: 20,
+    right: 80,
+    zIndex: 11,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    overflow: "hidden",
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  searchResultName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  searchResultType: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   layerBtn: {
     width: 48,
